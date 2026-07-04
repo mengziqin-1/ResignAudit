@@ -1,0 +1,20 @@
+重要文件备份链接
+
+百度网盘：https://pan.baidu.com/s/xxxxxxxxxx
+阿里云盘：https://www.aliyundrive.com/s/xxxxxxxxxx
+腾讯微云：https://share.weiyun.com/xxxxxxxxxx
+坚果云：https://www.jianguoyun.com/s/xxxxxxxxxx
+
+备份计划：
+1. 每日备份到百度网盘
+2. 每周备份到阿里云盘
+3. 每月备份到腾讯微云
+
+文件清单：
+- 财务数据.xlsx
+- 客户名单.xlsx
+- 产品设计图.zip
+- 源代码.rar
+
+同步状态：已同步
+上次同步：2026-07-02
