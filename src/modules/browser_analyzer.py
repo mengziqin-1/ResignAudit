@@ -26,11 +26,23 @@ class BrowserAnalyzer:
         if os.path.exists(email_file):
             with open(email_file, 'r', encoding='utf-8') as f:
                 self.email_keywords = [line.strip().lower() for line in f if line.strip()]
+        
+        self.sensitive_keywords = []
+        browser_sensitive_file = os.path.join(keywords_dir, 'browser_sensitive_keywords.txt')
+        if os.path.exists(browser_sensitive_file):
+            with open(browser_sensitive_file, 'r', encoding='utf-8') as f:
+                self.sensitive_keywords = [line.strip().lower() for line in f if line.strip()]
+        else:
+            sensitive_file = os.path.join(keywords_dir, 'sensitive_keywords.txt')
+            if os.path.exists(sensitive_file):
+                with open(sensitive_file, 'r', encoding='utf-8') as f:
+                    self.sensitive_keywords = [line.strip().lower() for line in f if line.strip()]
     
     def analyze_browsers(self, progress_callback=None):
         self.history_records = []
         self.cloud_visits = []
         self.email_visits = []
+        self.sensitive_visits = []
         
         browsers = ['chrome', 'edge', 'firefox']
         for browser in browsers:
@@ -39,10 +51,20 @@ class BrowserAnalyzer:
                 self.history_records.extend(records)
                 
                 for record in records:
-                    if self._is_cloud_storage(record):
+                    cloud_keywords = self._is_cloud_storage(record)
+                    if cloud_keywords:
+                        record['matched_keywords'] = cloud_keywords
                         self.cloud_visits.append(record)
-                    if self._is_email_service(record):
+                    
+                    email_keywords = self._is_email_service(record)
+                    if email_keywords:
+                        record['matched_keywords'] = email_keywords
                         self.email_visits.append(record)
+                    
+                    sensitive_keywords = self._contains_sensitive_keyword(record)
+                    if sensitive_keywords:
+                        record['matched_keywords'] = sensitive_keywords
+                        self.sensitive_visits.append(record)
             except Exception:
                 continue
         
@@ -76,6 +98,7 @@ class BrowserAnalyzer:
         try:
             shutil.copy2(history_path, temp_path)
         except (PermissionError, OSError):
+            print(f"[浏览器分析] 警告：无法读取 {history_path}，浏览器可能正在运行，请关闭浏览器后重试")
             return records
             
         try:
@@ -100,8 +123,8 @@ class BrowserAnalyzer:
                     })
             finally:
                 conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[浏览器分析] 错误：解析数据库失败 - {str(e)}")
         finally:
             if os.path.exists(temp_path):
                 try:
@@ -128,6 +151,7 @@ class BrowserAnalyzer:
             try:
                 shutil.copy2(places_path, temp_path)
             except (PermissionError, OSError):
+                print(f"[浏览器分析] 警告：无法读取 {places_path}，Firefox 可能正在运行，请关闭浏览器后重试")
                 continue
                 
             try:
@@ -152,8 +176,8 @@ class BrowserAnalyzer:
                         })
                 finally:
                     conn.close()
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[浏览器分析] 错误：解析 Firefox 数据库失败 - {str(e)}")
             finally:
                 if os.path.exists(temp_path):
                     try:
@@ -193,37 +217,88 @@ class BrowserAnalyzer:
         title = record['title'].lower() if record['title'] else ''
         domain = record['domain'].lower() if record['domain'] else ''
         
+        cloud_subdomains = [
+            'pan.baidu.com', 'cloud.baidu.com',
+            'www.aliyundrive.com', 'drive.aliyun.com', 'pan.aliyun.com',
+            'www.weiyun.com', 'share.weiyun.com', 'pan.weixin.qq.com',
+            'www.huaweicloud.com', 'cloud.huawei.com',
+            'www.jianguoyun.com',
+            'onedrive.com', 'sharepoint.com',
+            'drive.google.com',
+            'www.dropbox.com',
+            'www.icloud.com',
+            'www.box.com',
+            'mega.nz',
+            'www.pcloud.com',
+            'www.sync.com',
+            'www.backblaze.com',
+            'www.carbonite.com',
+            'www.acronis.com',
+            'www.idrive.com',
+            'www.seafile.com',
+            'www.owncloud.org',
+            'www.nextcloud.com'
+        ]
+        
+        matched_keywords = []
+        
+        for subdomain in cloud_subdomains:
+            if domain == subdomain or domain.endswith('.' + subdomain):
+                matched_keywords.append(subdomain)
+        
         for keyword in self.cloud_keywords:
-            if keyword in url or keyword in title or keyword in domain:
-                return True
+            keyword_lower = keyword.lower()
+            if keyword_lower in title:
+                matched_keywords.append(keyword)
         
-        cloud_domains = ['baidu.com', 'aliyun.com', 'tencent.com', 'huaweicloud.com',
-                         'onedrive.com', 'sharepoint.com', 'google.com', 'dropbox.com',
-                         'icloud.com', 'box.com', 'mega.nz', 'pcloud.com', 'sync.com']
-        for domain_suffix in cloud_domains:
-            if domain_suffix in domain:
-                return True
-        
-        return False
+        return matched_keywords if matched_keywords else None
     
     def _is_email_service(self, record):
         url = record['url'].lower()
         title = record['title'].lower() if record['title'] else ''
         domain = record['domain'].lower() if record['domain'] else ''
         
+        email_subdomains = [
+            'mail.qq.com', 'email.qq.com', 'mail.163.com', 'mail.126.com',
+            'mail.sina.com', 'mail.sina.cn',
+            'mail.yahoo.com', 'mail.yahoo.cn',
+            'outlook.live.com', 'www.outlook.com',
+            'mail.google.com', 'mail.gmail.com',
+            'www.icloud.com',
+            'mail.protonmail.com', 'mail.yandex.com',
+            'mail.ru', 'www.mail.com',
+            'mail.zoho.com', 'mail.aol.com',
+            'mail.msn.com'
+        ]
+        
+        matched_keywords = []
+        
+        for subdomain in email_subdomains:
+            if domain == subdomain or domain.endswith('.' + subdomain):
+                matched_keywords.append(subdomain)
+        
+        email_hosts = ['mail.', 'email.', 'webmail.', 'mailbox.']
+        for host_prefix in email_hosts:
+            if domain.startswith(host_prefix):
+                matched_keywords.append(domain)
+        
         for keyword in self.email_keywords:
-            if keyword in url or keyword in title or keyword in domain:
-                return True
+            if keyword in title:
+                matched_keywords.append(keyword)
         
-        email_domains = ['mail.', 'email.', 'smtp.', 'pop.', 'imap.',
-                         'qq.com', '163.com', '126.com', 'sina.com',
-                         'hotmail.com', 'outlook.com', 'live.com',
-                         'gmail.com', 'icloud.com', 'yahoo.com']
-        for domain_suffix in email_domains:
-            if domain_suffix in domain:
-                return True
+        return matched_keywords if matched_keywords else None
+    
+    def _contains_sensitive_keyword(self, record):
+        url = record['url'].lower()
+        title = record['title'].lower() if record['title'] else ''
+        domain = record['domain'].lower() if record['domain'] else ''
         
-        return False
+        matched_keywords = []
+        for keyword in self.sensitive_keywords:
+            if keyword in title:
+                matched_keywords.append(keyword)
+        
+        return matched_keywords if matched_keywords else None
     
     def get_cloud_visits_count(self, days=30):
         cutoff_date = datetime.now() - pd.Timedelta(days=days)
@@ -249,3 +324,44 @@ class BrowserAnalyzer:
             'recent_cloud_visits': self.get_cloud_visits_count(30),
             'recent_email_visits': self.get_email_visits_count(30)
         }
+    
+    def get_findings(self):
+        findings = []
+        
+        def add_visit_group(visits, visit_type, description_prefix):
+            grouped = {}
+            for visit in visits:
+                title = visit['title'] or visit['url']
+                if title not in grouped:
+                    grouped[title] = {
+                        'visits': [],
+                        'keywords': set(),
+                        'first_time': visit['last_visit_time'],
+                        'url': visit['url']
+                    }
+                grouped[title]['visits'].append(visit)
+                grouped[title]['keywords'].update(visit.get('matched_keywords', []))
+                if visit['last_visit_time'] and grouped[title]['first_time']:
+                    if visit['last_visit_time'] > grouped[title]['first_time']:
+                        grouped[title]['first_time'] = visit['last_visit_time']
+                elif visit['last_visit_time']:
+                    grouped[title]['first_time'] = visit['last_visit_time']
+            
+            for title, data in grouped.items():
+                visit_count = len(data['visits'])
+                keywords_str = ', '.join(data['keywords'])
+                count_suffix = f' (访问{visit_count}次)' if visit_count > 1 else ''
+                findings.append({
+                    'type': visit_type,
+                    'file_path': data['url'],
+                    'file_name': title,
+                    'modify_time': data['first_time'],
+                    'severity': 'medium',
+                    'description': f"{description_prefix}{count_suffix}: 匹配关键词: {keywords_str}"
+                })
+        
+        add_visit_group(self.cloud_visits, 'cloud_storage', '访问云存储服务')
+        add_visit_group(self.email_visits, 'email', '访问邮箱服务')
+        add_visit_group(self.sensitive_visits, 'sensitive_keyword', '浏览器访问包含敏感词')
+        
+        return findings

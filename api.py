@@ -97,13 +97,16 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date):
         audit_tasks[task_id]['message'] = '生成PDF报告...'
         time.sleep(1)
         
+        browser_findings = browser_analyzer.get_findings()
+        all_findings = content_findings + browser_findings
+        
         report_data = {
             'employee_name': employee_name,
             'audit_range': directory_path,
             'audit_time_range': f"{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}",
             'risk_level': risk_assessment['risk_level'],
             'findings': risk_assessment['findings'],
-            'content_findings': content_findings,
+            'content_findings': all_findings,
             'timeline': timeline,
             'file_scan_results': file_results
         }

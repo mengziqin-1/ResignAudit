@@ -55,9 +55,9 @@ class FileScanner:
         modify_time = datetime.fromtimestamp(file_stat.st_mtime)
         access_time = datetime.fromtimestamp(file_stat.st_atime)
         
-        if audit_start_date and modify_time.date() < audit_start_date.date():
+        if audit_start_date and modify_time.date() < audit_start_date:
             return None
-        if audit_end_date and modify_time.date() > audit_end_date.date():
+        if audit_end_date and modify_time.date() > audit_end_date:
             return None
         
         file_ext = os.path.splitext(file_path)[1].lower()

@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, Frame
 from reportlab.lib import colors
 from reportlab.lib.units import inch, cm
 from reportlab.pdfbase import pdfmetrics
@@ -78,6 +78,23 @@ class PDFReportGenerator:
             leading=16
         )
         
+        self.table_cell_style = ParagraphStyle(
+            'CustomTableCell',
+            fontSize=9,
+            fontName='Chinese',
+            leading=14,
+            wordWrap='CJK'
+        )
+        
+        self.table_header_style = ParagraphStyle(
+            'CustomTableHeader',
+            fontSize=9,
+            fontName='Chinese',
+            leading=14,
+            alignment=1,
+            fontWeight='bold'
+        )
+        
         self.high_risk_style = ParagraphStyle(
             'CustomHighRisk',
             fontSize=11,
@@ -141,12 +158,12 @@ class PDFReportGenerator:
         elements.append(Paragraph('一、报告信息', self.heading1_style))
         
         info_data = [
-            ['审计项目', '离职安全审计系统'],
-            ['审计日期', datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')],
-            ['员工姓名', audit_data.get('employee_name', '未指定')],
-            ['审计范围', audit_data.get('audit_range', '未指定')],
-            ['审计时间', audit_data.get('audit_time_range', '未指定')],
-            ['风险等级', audit_data.get('risk_level', {}).get('level', '未评估')]
+            [Paragraph('审计项目', self.table_header_style), Paragraph('离职安全审计系统', self.table_cell_style)],
+            [Paragraph('审计日期', self.table_header_style), Paragraph(datetime.now().strftime('%Y年%m月%d日 %H:%M:%S'), self.table_cell_style)],
+            [Paragraph('员工姓名', self.table_header_style), Paragraph(audit_data.get('employee_name', '未指定'), self.table_cell_style)],
+            [Paragraph('审计范围', self.table_header_style), Paragraph(audit_data.get('audit_range', '未指定'), self.table_cell_style)],
+            [Paragraph('审计时间', self.table_header_style), Paragraph(audit_data.get('audit_time_range', '未指定'), self.table_cell_style)],
+            [Paragraph('风险等级', self.table_header_style), Paragraph(audit_data.get('risk_level', {}).get('level', '未评估'), self.table_cell_style)]
         ]
         
         table = Table(info_data, colWidths=[100, 400])
@@ -154,11 +171,11 @@ class PDFReportGenerator:
             ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
             ('TEXTCOLOR', (0, 0), (0, -1), colors.darkblue),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
         ]))
         
@@ -214,19 +231,22 @@ class PDFReportGenerator:
                 elements.append(Paragraph(f'{type_name}（共{len(type_findings)}条）', self.heading2_style))
                 
                 data = [['序号', '文件名', '修改时间', '发现内容']]
-                for idx, finding in enumerate(type_findings[:20], 1):
+                for idx, finding in enumerate(type_findings, 1):
+                    modify_time_val = finding.get('modify_time', '')
+                    modify_time_str = modify_time_val.strftime('%Y-%m-%d %H:%M') if hasattr(modify_time_val, 'strftime') else ''
+                    
                     data.append([
-                        str(idx),
-                        finding.get('file_name', ''),
-                        finding.get('modify_time', '').strftime('%Y-%m-%d %H:%M') if hasattr(finding.get('modify_time'), 'strftime') else '',
-                        finding.get('description', '')[:50] + '...' if len(finding.get('description', '')) > 50 else finding.get('description', '')
+                        Paragraph(str(idx), self.table_cell_style),
+                        Paragraph(finding.get('file_name', ''), self.table_cell_style),
+                        Paragraph(modify_time_str, self.table_cell_style),
+                        Paragraph(finding.get('description', ''), self.table_cell_style)
                     ])
                 
                 table = Table(data, colWidths=[40, 150, 120, 200])
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                     ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
                     ('FONTSIZE', (0, 0), (-1, -1), 9),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
@@ -235,8 +255,6 @@ class PDFReportGenerator:
                 ]))
                 
                 elements.append(table)
-                if len(type_findings) > 20:
-                    elements.append(Paragraph(f'... 还有 {len(type_findings) - 20} 条记录未显示', self.small_style))
                 elements.append(Spacer(1, 8))
         
         elements.append(Spacer(1, 12))
@@ -246,9 +264,9 @@ class PDFReportGenerator:
         
         timeline = audit_data.get('timeline', [])
         if timeline:
-            data = [['时间', '事件类型', '描述']]
+            data = [['序号', '时间', '事件类型', '描述']]
             
-            for event in timeline[:50]:
+            for idx, event in enumerate(timeline, 1):
                 timestamp = event.get('timestamp')
                 time_str = timestamp.strftime('%Y-%m-%d %H:%M:%S') if hasattr(timestamp, 'strftime') else ''
                 
@@ -258,29 +276,37 @@ class PDFReportGenerator:
                 if event_type == 'file':
                     description = event.get('file_name', '')
                 elif event_type == 'content':
-                    description = event.get('description', '')[:30]
+                    description = event.get('description', '')
                 elif event_type == 'usb':
                     description = event.get('device_name', '') or 'USB设备操作'
                 elif event_type == 'browser':
-                    description = event.get('url', '')[:30]
+                    title = event.get('title', '')
+                    url = event.get('url', '')
+                    if title:
+                        description = f"{title} - {url}"
+                    else:
+                        description = url
                 
-                data.append([time_str, event_type, description])
+                data.append([
+                    Paragraph(str(idx), self.table_cell_style),
+                    Paragraph(time_str, self.table_cell_style),
+                    Paragraph(event_type, self.table_cell_style),
+                    Paragraph(description, self.table_cell_style)
+                ])
             
-            table = Table(data, colWidths=[130, 80, 300])
+            table = Table(data, colWidths=[35, 130, 70, 270])
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
-                ('FONTSIZE', (0, 0), (-1, -1), 9),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
                 ('TOPPADDING', (0, 0), (-1, -1), 3),
                 ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
             ]))
             
             elements.append(table)
-            if len(timeline) > 50:
-                elements.append(Paragraph(f'... 还有 {len(timeline) - 50} 条事件未显示', self.small_style))
         else:
             elements.append(Paragraph('暂无事件记录', self.normal_style))
         
@@ -311,23 +337,23 @@ class PDFReportGenerator:
         
         if all_evidence:
             data = [['序号', '类型', '路径', '大小', '修改时间']]
-            for idx, evidence in enumerate(all_evidence[:30], 1):
+            for idx, evidence in enumerate(all_evidence, 1):
                 modify_time = evidence.get('modify_time')
                 time_str = modify_time.strftime('%Y-%m-%d %H:%M') if hasattr(modify_time, 'strftime') else ''
                 
                 data.append([
-                    str(idx),
-                    evidence.get('type', ''),
-                    evidence.get('path', '')[:80] + '...' if len(evidence.get('path', '')) > 80 else evidence.get('path', ''),
-                    evidence.get('size', ''),
-                    time_str
+                    Paragraph(str(idx), self.table_cell_style),
+                    Paragraph(evidence.get('type', ''), self.table_cell_style),
+                    Paragraph(evidence.get('path', ''), self.table_cell_style),
+                    Paragraph(evidence.get('size', ''), self.table_cell_style),
+                    Paragraph(time_str, self.table_cell_style)
                 ])
             
-            table = Table(data, colWidths=[40, 80, 300, 60, 130])
+            table = Table(data, colWidths=[35, 70, 310, 55, 125])
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
@@ -336,8 +362,6 @@ class PDFReportGenerator:
             ]))
             
             elements.append(table)
-            if len(all_evidence) > 30:
-                elements.append(Paragraph(f'... 还有 {len(all_evidence) - 30} 条证据未显示', self.small_style))
         else:
             elements.append(Paragraph('暂无证据记录', self.normal_style))
         
@@ -356,13 +380,19 @@ class PDFReportGenerator:
         ]
         
         data = [['规则ID', '规则名称', '触发条件', '风险评分']]
-        data.extend(rules)
+        for rule in rules:
+            data.append([
+                Paragraph(rule[0], self.table_cell_style),
+                Paragraph(rule[1], self.table_cell_style),
+                Paragraph(rule[2], self.table_cell_style),
+                Paragraph(str(rule[3]), self.table_cell_style)
+            ])
         
         table = Table(data, colWidths=[60, 150, 200, 80])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 5),

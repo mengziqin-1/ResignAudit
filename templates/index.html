@@ -907,7 +907,7 @@
                     return;
                 }
                 
-                timeline.slice(0, 30).forEach(event => {
+                timeline.forEach(event => {
                     const timestamp = event.timestamp;
                     const timeStr = typeof timestamp === 'string' ? timestamp : 
                         (timestamp && timestamp.strftime ? timestamp.strftime('%Y-%m-%d %H:%M:%S') : '未知时间');
@@ -916,8 +916,14 @@
                     let desc = '';
                     
                     if (event.file_name) desc = event.file_name;
-                    else if (event.description) desc = String(event.description).substring(0, 80);
-                    else if (event.url) desc = String(event.url).substring(0, 80);
+                    else if (event.description) desc = String(event.description);
+                    else if (event.url) {
+                        if (event.title) {
+                            desc = event.title + ' - ' + event.url;
+                        } else {
+                            desc = event.url;
+                        }
+                    }
                     else if (event.device_name) desc = event.device_name;
                     
                     const eventEl = document.createElement('div');

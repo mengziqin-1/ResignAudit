@@ -99,13 +99,16 @@ class AuditThread(QThread):
             
             self.progress_update.emit(95, '生成PDF报告...')
             
+            browser_findings = browser_analyzer.get_findings()
+            all_findings = content_findings + browser_findings
+            
             report_data = {
                 'employee_name': self.employee_name,
                 'audit_range': self.directory_path,
                 'audit_time_range': f"{self.start_date.strftime('%Y-%m-%d')} 至 {self.end_date.strftime('%Y-%m-%d')}",
                 'risk_level': risk_assessment['risk_level'],
                 'findings': risk_assessment['findings'],
-                'content_findings': content_findings,
+                'content_findings': all_findings,
                 'timeline': timeline,
                 'file_scan_results': file_results
             }
@@ -326,7 +329,7 @@ class MainWindow(QMainWindow):
     def populate_timeline(self, timeline):
         self.timeline_table.setRowCount(0)
         
-        for idx, event in enumerate(timeline[:100], 1):
+        for idx, event in enumerate(timeline, 1):
             row = self.timeline_table.rowCount()
             self.timeline_table.insertRow(row)
             
@@ -342,9 +345,13 @@ class MainWindow(QMainWindow):
             if event.get('file_name'):
                 description = event['file_name']
             elif event.get('description'):
-                description = str(event['description'])[:50]
+                description = str(event['description'])
             elif event.get('url'):
-                description = str(event['url'])[:50]
+                title = event.get('title', '')
+                if title:
+                    description = f"{title} - {event['url']}"
+                else:
+                    description = str(event['url'])
             elif event.get('device_name'):
                 description = event['device_name']
             
