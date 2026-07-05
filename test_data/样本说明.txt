@@ -1,0 +1,1 @@
+本目录用于课堂演示电子数据取证流程。mock_chat.sqlite 模拟即时通信记录，mock_usb_events.json 模拟 USB 插拔与复制事件。

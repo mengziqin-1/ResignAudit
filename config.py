@@ -57,11 +57,11 @@ CHAT_PATHS = {
 }
 
 REPORT_TEMPLATE = {
-    'title': '离职安全审计报告',
+    'title': '离职场景电子数据取证分析报告',
     'font': 'SimHei',
     'font_size': 12,
     'header': [
-        '审计项目', '离职安全审计系统',
+        '审计项目', '面向离职风险的电子数据取证辅助系统',
         '审计日期', '{audit_date}',
         '员工姓名', '{employee_name}',
         '审计范围', '{audit_range}',

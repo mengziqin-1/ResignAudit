@@ -23,7 +23,7 @@ CORS(app)
 
 audit_tasks = {}
 
-def run_audit(task_id, employee_name, directory_path, start_date, end_date):
+def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path='', usb_json_path=''):
     try:
         audit_tasks[task_id]['status'] = 'running'
         audit_tasks[task_id]['progress'] = 5
@@ -53,13 +53,13 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date):
         audit_tasks[task_id]['message'] = '③ 聊天记录审计：解析微信/QQ/Skype聊天数据库...'
         time.sleep(1)
         
-        chat_records = chat_auditor.audit_chat_records()
+        chat_records = chat_auditor.audit_chat_records(mock_db_path=chat_db_path)
         
         audit_tasks[task_id]['progress'] = 55
         audit_tasks[task_id]['message'] = '④ USB设备审计：读取注册表提取U盘插拔记录...'
         time.sleep(1)
         
-        usb_devices, usb_operations = usb_auditor.audit_usb_devices()
+        usb_devices, usb_operations = usb_auditor.audit_usb_devices(mock_json_path=usb_json_path)
         
         audit_tasks[task_id]['progress'] = 70
         audit_tasks[task_id]['message'] = '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...'
@@ -85,13 +85,15 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date):
         scan_results = {
             'night_time_file_operations': file_scanner.get_night_time_operations(),
             'usb_insertions_last_30_days': usb_auditor.get_usb_insertions_count(30),
-            'usb_file_copies': len(usb_operations),
+            'usb_file_copies': usb_auditor.get_usb_file_copies(),
             'chat_leak_keywords_found': chat_auditor.get_leak_keywords_count(),
             'browser_cloud_visits': browser_analyzer.get_cloud_visits_count(30),
-            'large_archives_created': len(file_scanner.get_large_archives())
+            'large_archives_created': len(file_scanner.get_large_archives(min_size_mb=0.001)),
+            'content_sensitive_findings': sum(1 for f in content_findings if f.get('type') == 'sensitive_keyword')
         }
         
         risk_assessment = rule_engine.assess_risk(employee_name, scan_results)
+        scan_results['risk_score'] = risk_assessment['risk_score']
         
         audit_tasks[task_id]['progress'] = 95
         audit_tasks[task_id]['message'] = '生成PDF报告...'
@@ -104,6 +106,11 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date):
             'employee_name': employee_name,
             'audit_range': directory_path,
             'audit_time_range': f"{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}",
+            'data_sources': {
+                '工作目录': directory_path,
+                '聊天记录样本': chat_db_path or '未指定，尝试读取本机默认聊天目录',
+                'USB使用记录样本': usb_json_path or '未指定，尝试读取本机注册表'
+            },
             'risk_level': risk_assessment['risk_level'],
             'findings': risk_assessment['findings'],
             'content_findings': all_findings,
@@ -141,6 +148,8 @@ def start_audit():
     
     employee_name = data.get('employee_name', '')
     directory_path = data.get('directory_path', '')
+    chat_db_path = data.get('chat_db_path', '')
+    usb_json_path = data.get('usb_json_path', '')
     start_date_str = data.get('start_date', '')
     end_date_str = data.get('end_date', '')
     
@@ -149,6 +158,12 @@ def start_audit():
     
     if not os.path.exists(directory_path):
         return jsonify({'error': '指定的目录不存在'}), 400
+
+    if chat_db_path and not os.path.exists(chat_db_path):
+        return jsonify({'error': '指定的聊天记录样本不存在'}), 400
+
+    if usb_json_path and not os.path.exists(usb_json_path):
+        return jsonify({'error': '指定的USB记录样本不存在'}), 400
     
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
@@ -165,7 +180,7 @@ def start_audit():
         'directory_path': directory_path
     }
     
-    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date))
+    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path, usb_json_path))
     thread.start()
     
     return jsonify({'task_id': task_id})

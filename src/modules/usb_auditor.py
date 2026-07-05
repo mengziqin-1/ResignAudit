@@ -1,6 +1,10 @@
 import os
 import re
-import winreg
+import json
+try:
+    import winreg
+except ImportError:
+    winreg = None
 import pandas as pd
 from datetime import datetime
 
@@ -9,9 +13,20 @@ class USBAuditor:
         self.usb_devices = []
         self.usb_operations = []
     
-    def audit_usb_devices(self, progress_callback=None):
+    def audit_usb_devices(self, progress_callback=None, mock_json_path=None):
         self.usb_devices = []
         self.usb_operations = []
+
+        if mock_json_path and os.path.exists(mock_json_path):
+            self._load_mock_usb_events(mock_json_path)
+            if progress_callback:
+                progress_callback(f"USB使用记录样本解析完成，共发现 {len(self.usb_devices)} 个设备事件、{len(self.usb_operations)} 条操作")
+            return self.usb_devices, self.usb_operations
+
+        if winreg is None:
+            if progress_callback:
+                progress_callback("当前环境不支持 Windows 注册表读取，已跳过真实 USB 注册表审计")
+            return self.usb_devices, self.usb_operations
         
         try:
             self._scan_usbstor_registry(progress_callback)
@@ -34,6 +49,46 @@ class USBAuditor:
             pass
         
         return self.usb_devices, self.usb_operations
+
+    def _load_mock_usb_events(self, mock_json_path):
+        with open(mock_json_path, 'r', encoding='utf-8') as f:
+            events = json.load(f)
+
+        for event in events:
+            event_time = self._parse_event_time(event.get('event_time'))
+            device_info = {
+                'device_path': mock_json_path,
+                'device_type': 'MOCK_USB_STORAGE',
+                'first_insert_time': event_time,
+                'last_insert_time': event_time,
+                'device_name': event.get('device_name', '未知USB设备'),
+                'vendor_id': '',
+                'product_id': '',
+                'serial_number': event.get('serial_number', ''),
+                'event_type': event.get('event_type', 'unknown'),
+                'timestamp': event_time or datetime.now()
+            }
+            self.usb_devices.append(device_info)
+
+            if event.get('event_type') in ('copy', 'write', 'archive_copy'):
+                file_count = int(event.get('file_count', 1) or 1)
+                self.usb_operations.append({
+                    'operation_type': event.get('event_type'),
+                    'device_id': event.get('serial_number', ''),
+                    'device_info': event.get('description', ''),
+                    'file_count': file_count,
+                    'timestamp': event_time or datetime.now()
+                })
+
+    def _parse_event_time(self, value):
+        if not value:
+            return None
+        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y/%m/%d %H:%M:%S'):
+            try:
+                return datetime.strptime(str(value), fmt)
+            except ValueError:
+                continue
+        return None
     
     def _scan_usbstor_registry(self, progress_callback=None):
         try:
@@ -305,7 +360,10 @@ class USBAuditor:
         return count
     
     def get_usb_file_copies(self):
-        return len(self.usb_operations)
+        total = 0
+        for operation in self.usb_operations:
+            total += int(operation.get('file_count', 1) or 1)
+        return total
     
     def get_summary(self):
         return {

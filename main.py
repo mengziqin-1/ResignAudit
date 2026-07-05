@@ -28,12 +28,14 @@ class AuditThread(QThread):
     progress_update = pyqtSignal(int, str)
     audit_complete = pyqtSignal(dict)
     
-    def __init__(self, employee_name, directory_path, start_date, end_date):
+    def __init__(self, employee_name, directory_path, start_date, end_date, chat_db_path='', usb_json_path=''):
         super().__init__()
         self.employee_name = employee_name
         self.directory_path = directory_path
         self.start_date = start_date
         self.end_date = end_date
+        self.chat_db_path = chat_db_path
+        self.usb_json_path = usb_json_path
     
     def run(self):
         try:
@@ -63,12 +65,14 @@ class AuditThread(QThread):
             
             self.progress_update.emit(40, '③ 聊天记录审计：解析微信/QQ/Skype聊天数据库...')
             chat_records = chat_auditor.audit_chat_records(
-                lambda msg: self.progress_update.emit(40, msg)
+                lambda msg: self.progress_update.emit(40, msg),
+                self.chat_db_path
             )
             
             self.progress_update.emit(55, '④ USB设备审计：读取注册表提取U盘插拔记录...')
             usb_devices, usb_operations = usb_auditor.audit_usb_devices(
-                lambda msg: self.progress_update.emit(55, msg)
+                lambda msg: self.progress_update.emit(55, msg),
+                self.usb_json_path
             )
             
             self.progress_update.emit(70, '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...')
@@ -89,13 +93,15 @@ class AuditThread(QThread):
             scan_results = {
                 'night_time_file_operations': file_scanner.get_night_time_operations(),
                 'usb_insertions_last_30_days': usb_auditor.get_usb_insertions_count(30),
-                'usb_file_copies': len(usb_operations),
+                'usb_file_copies': usb_auditor.get_usb_file_copies(),
                 'chat_leak_keywords_found': chat_auditor.get_leak_keywords_count(),
                 'browser_cloud_visits': browser_analyzer.get_cloud_visits_count(30),
-                'large_archives_created': len(file_scanner.get_large_archives())
+                'large_archives_created': len(file_scanner.get_large_archives(min_size_mb=0.001)),
+                'content_sensitive_findings': sum(1 for f in content_findings if f.get('type') == 'sensitive_keyword')
             }
             
             risk_assessment = rule_engine.assess_risk(self.employee_name, scan_results)
+            scan_results['risk_score'] = risk_assessment['risk_score']
             
             self.progress_update.emit(95, '生成PDF报告...')
             
@@ -106,6 +112,7 @@ class AuditThread(QThread):
                 'employee_name': self.employee_name,
                 'audit_range': self.directory_path,
                 'audit_time_range': f"{self.start_date.strftime('%Y-%m-%d')} 至 {self.end_date.strftime('%Y-%m-%d')}",
+                'data_sources': self._build_data_sources(),
                 'risk_level': risk_assessment['risk_level'],
                 'findings': risk_assessment['findings'],
                 'content_findings': all_findings,
@@ -129,10 +136,17 @@ class AuditThread(QThread):
         except Exception as e:
             self.progress_update.emit(-1, f'审计过程中发生错误: {str(e)}')
 
+    def _build_data_sources(self):
+        return {
+            '工作目录': self.directory_path,
+            '聊天记录样本': self.chat_db_path or '未指定，尝试读取本机默认聊天目录',
+            'USB使用记录样本': self.usb_json_path or '未指定，尝试读取本机注册表'
+        }
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle('离职安全审计系统')
+        self.setWindowTitle('离职场景电子数据取证辅助系统')
         self.setGeometry(100, 100, 1000, 700)
         
         self.init_ui()
@@ -142,7 +156,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
         
-        header = QLabel('离职安全审计系统')
+        header = QLabel('离职场景电子数据取证辅助系统')
         header.setFont(QFont('SimHei', 20, QFont.Bold))
         header.setAlignment(Qt.AlignCenter)
         main_layout.addWidget(header)
@@ -161,16 +175,34 @@ class MainWindow(QMainWindow):
         browse_btn = QPushButton('浏览')
         browse_btn.clicked.connect(self.browse_directory)
         input_layout.addWidget(browse_btn, 1, 2)
+
+        input_layout.addWidget(QLabel('聊天记录样本：'), 2, 0)
+        self.chat_db_edit = QLineEdit()
+        self.chat_db_edit.setPlaceholderText('可选：test_data/mock_chat.sqlite')
+        input_layout.addWidget(self.chat_db_edit, 2, 1)
         
-        input_layout.addWidget(QLabel('审计开始日期：'), 2, 0)
+        browse_chat_btn = QPushButton('选择')
+        browse_chat_btn.clicked.connect(self.browse_chat_db)
+        input_layout.addWidget(browse_chat_btn, 2, 2)
+        
+        input_layout.addWidget(QLabel('USB记录样本：'), 3, 0)
+        self.usb_json_edit = QLineEdit()
+        self.usb_json_edit.setPlaceholderText('可选：test_data/mock_usb_events.json')
+        input_layout.addWidget(self.usb_json_edit, 3, 1)
+        
+        browse_usb_btn = QPushButton('选择')
+        browse_usb_btn.clicked.connect(self.browse_usb_json)
+        input_layout.addWidget(browse_usb_btn, 3, 2)
+        
+        input_layout.addWidget(QLabel('审计开始日期：'), 4, 0)
         self.start_date_edit = QDateEdit(QDate.currentDate().addDays(-30))
         self.start_date_edit.setDisplayFormat('yyyy-MM-dd')
-        input_layout.addWidget(self.start_date_edit, 2, 1)
+        input_layout.addWidget(self.start_date_edit, 4, 1)
         
-        input_layout.addWidget(QLabel('审计结束日期：'), 3, 0)
+        input_layout.addWidget(QLabel('审计结束日期：'), 5, 0)
         self.end_date_edit = QDateEdit(QDate.currentDate())
         self.end_date_edit.setDisplayFormat('yyyy-MM-dd')
-        input_layout.addWidget(self.end_date_edit, 3, 1)
+        input_layout.addWidget(self.end_date_edit, 5, 1)
         
         main_layout.addWidget(input_group)
         
@@ -238,10 +270,22 @@ class MainWindow(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, '选择工作目录')
         if directory:
             self.directory_edit.setText(directory)
+
+    def browse_chat_db(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, '选择聊天记录SQLite样本', '', 'SQLite文件 (*.sqlite *.db);;所有文件 (*)')
+        if file_path:
+            self.chat_db_edit.setText(file_path)
+
+    def browse_usb_json(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, '选择USB记录JSON样本', '', 'JSON文件 (*.json);;所有文件 (*)')
+        if file_path:
+            self.usb_json_edit.setText(file_path)
     
     def start_audit(self):
         employee_name = self.employee_name_edit.text().strip()
         directory_path = self.directory_edit.text().strip()
+        chat_db_path = self.chat_db_edit.text().strip()
+        usb_json_path = self.usb_json_edit.text().strip()
         start_date = self.start_date_edit.date().toPyDate()
         end_date = self.end_date_edit.date().toPyDate()
         
@@ -256,6 +300,14 @@ class MainWindow(QMainWindow):
         if not os.path.exists(directory_path):
             QMessageBox.warning(self, '警告', '指定的目录不存在')
             return
+
+        if chat_db_path and not os.path.exists(chat_db_path):
+            QMessageBox.warning(self, '警告', '指定的聊天记录样本不存在')
+            return
+
+        if usb_json_path and not os.path.exists(usb_json_path):
+            QMessageBox.warning(self, '警告', '指定的USB记录样本不存在')
+            return
         
         if start_date > end_date:
             QMessageBox.warning(self, '警告', '开始日期不能大于结束日期')
@@ -265,7 +317,7 @@ class MainWindow(QMainWindow):
         self.log_text.clear()
         self.progress_bar.setValue(0)
         
-        self.audit_thread = AuditThread(employee_name, directory_path, start_date, end_date)
+        self.audit_thread = AuditThread(employee_name, directory_path, start_date, end_date, chat_db_path, usb_json_path)
         self.audit_thread.progress_update.connect(self.update_progress)
         self.audit_thread.audit_complete.connect(self.handle_audit_complete)
         self.audit_thread.start()

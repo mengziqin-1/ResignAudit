@@ -2,7 +2,7 @@ import os
 import stat
 import time
 import hashlib
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 class FileScanner:
@@ -11,6 +11,13 @@ class FileScanner:
         self.total_files = 0
         self.scan_start_time = None
         self.MAX_FILE_SIZE = 50 * 1024 * 1024
+        self.EXCLUDED_DIR_NAMES = {
+            '.git', '__pycache__', 'venv', '.venv', 'env', 'node_modules',
+            'reports', 'dist', 'build', '.idea', '.vscode'
+        }
+        self.EXCLUDED_FILE_KEYWORDS = [
+            '离职安全审计报告', '审计报告', 'audit_report', 'report_'
+        ]
         
     def scan_directory(self, directory, audit_start_date, audit_end_date, progress_callback=None):
         self.scan_results = []
@@ -25,7 +32,10 @@ class FileScanner:
         
         file_count = 0
         for root, dirs, files in os.walk(directory):
+            dirs[:] = [d for d in dirs if not self._should_skip_dir(d)]
             for filename in files:
+                if self._should_skip_file(filename):
+                    continue
                 file_path = os.path.join(root, filename)
                 try:
                     file_info = self._get_file_info(file_path, audit_start_date, audit_end_date)
@@ -39,6 +49,15 @@ class FileScanner:
                     continue
         
         return self.scan_results
+
+    def _should_skip_dir(self, dirname):
+        return dirname.lower() in self.EXCLUDED_DIR_NAMES
+
+    def _should_skip_file(self, filename):
+        lower_name = filename.lower()
+        if lower_name.endswith(('.tmp', '.log', '.pyc')):
+            return True
+        return any(keyword.lower() in lower_name for keyword in self.EXCLUDED_FILE_KEYWORDS)
     
     def _get_file_info(self, file_path, audit_start_date, audit_end_date):
         try:
@@ -70,7 +89,9 @@ class FileScanner:
             except:
                 file_hash = None
         
-        is_hidden = bool(os.stat(file_path).st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN) if hasattr(stat, 'FILE_ATTRIBUTE_HIDDEN') else False
+        is_hidden = False
+        if os.name == 'nt' and hasattr(stat, 'FILE_ATTRIBUTE_HIDDEN') and hasattr(file_stat, 'st_file_attributes'):
+            is_hidden = bool(file_stat.st_file_attributes & stat.FILE_ATTRIBUTE_HIDDEN)
         
         return {
             'file_path': file_path,

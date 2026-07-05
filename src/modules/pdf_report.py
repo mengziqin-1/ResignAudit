@@ -8,6 +8,7 @@ from reportlab.lib import colors
 from reportlab.lib.units import inch, cm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
 _CHINESE_FONT_REGISTERED = False
 
@@ -33,23 +34,43 @@ def _register_chinese_font():
                 return
             except Exception:
                 continue
+    
+    try:
+        pdfmetrics.registerFont(UnicodeCIDFont('STSong-Light'))
+        pdfmetrics.registerFontFamily('Chinese', normal='STSong-Light', bold='STSong-Light')
+        _CHINESE_FONT_REGISTERED = True
+    except Exception:
+        pass
 
 _register_chinese_font()
 
+def _get_pdf_font_name():
+    try:
+        pdfmetrics.getFont('Chinese')
+        return 'Chinese'
+    except Exception:
+        pass
+    try:
+        pdfmetrics.getFont('STSong-Light')
+        return 'STSong-Light'
+    except Exception:
+        return 'Helvetica'
+
 class PDFReportGenerator:
     def __init__(self):
+        self.font_name = _get_pdf_font_name()
         self.title_style = ParagraphStyle(
             'CustomTitle',
             fontSize=20,
             alignment=1,
-            fontName='Chinese',
+            fontName=self.font_name,
             spaceAfter=20
         )
         
         self.heading1_style = ParagraphStyle(
             'CustomHeading1',
             fontSize=16,
-            fontName='Chinese',
+            fontName=self.font_name,
             spaceBefore=15,
             spaceAfter=10,
             textColor=colors.darkblue
@@ -58,7 +79,7 @@ class PDFReportGenerator:
         self.heading2_style = ParagraphStyle(
             'CustomHeading2',
             fontSize=14,
-            fontName='Chinese',
+            fontName=self.font_name,
             spaceBefore=10,
             spaceAfter=5,
             textColor=colors.blue
@@ -67,21 +88,21 @@ class PDFReportGenerator:
         self.normal_style = ParagraphStyle(
             'CustomNormal',
             fontSize=11,
-            fontName='Chinese',
+            fontName=self.font_name,
             leading=18
         )
         
         self.small_style = ParagraphStyle(
             'CustomSmall',
             fontSize=10,
-            fontName='Chinese',
+            fontName=self.font_name,
             leading=16
         )
         
         self.table_cell_style = ParagraphStyle(
             'CustomTableCell',
             fontSize=9,
-            fontName='Chinese',
+            fontName=self.font_name,
             leading=14,
             wordWrap='CJK'
         )
@@ -89,7 +110,7 @@ class PDFReportGenerator:
         self.table_header_style = ParagraphStyle(
             'CustomTableHeader',
             fontSize=9,
-            fontName='Chinese',
+            fontName=self.font_name,
             leading=14,
             alignment=1,
             fontWeight='bold'
@@ -98,23 +119,31 @@ class PDFReportGenerator:
         self.high_risk_style = ParagraphStyle(
             'CustomHighRisk',
             fontSize=11,
-            fontName='Chinese',
+            fontName=self.font_name,
             textColor=colors.red
         )
         
         self.medium_risk_style = ParagraphStyle(
             'CustomMediumRisk',
             fontSize=11,
-            fontName='Chinese',
+            fontName=self.font_name,
             textColor=colors.orange
         )
         
         self.low_risk_style = ParagraphStyle(
             'CustomLowRisk',
             fontSize=11,
-            fontName='Chinese',
+            fontName=self.font_name,
             textColor=colors.yellow
         )
+
+    def _safe_text(self, value, max_len=240):
+        text = '' if value is None else str(value)
+        text = text.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ')
+        text = ' '.join(text.split())
+        if len(text) > max_len:
+            return text[:max_len] + '...'
+        return text
     
     def generate_report(self, audit_data, output_path=None):
         print('[PDF DEBUG] Starting PDF generation...')
@@ -124,10 +153,14 @@ class PDFReportGenerator:
             report_name = f'离职安全审计报告_{audit_data["employee_name"]}_{timestamp}.pdf'
             output_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports', report_name)
         
+        output_dir = os.path.dirname(output_path)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+        
         doc = SimpleDocTemplate(output_path, pagesize=A4)
         elements = []
         
-        elements.append(Paragraph('离职安全审计报告', self.title_style))
+        elements.append(Paragraph('离职场景电子数据取证分析报告', self.title_style))
         elements.append(Spacer(1, 12))
         
         print('[PDF DEBUG] Adding report info...')
@@ -158,13 +191,20 @@ class PDFReportGenerator:
         elements.append(Paragraph('一、报告信息', self.heading1_style))
         
         info_data = [
-            [Paragraph('审计项目', self.table_header_style), Paragraph('离职安全审计系统', self.table_cell_style)],
+            [Paragraph('审计项目', self.table_header_style), Paragraph('面向离职风险的电子数据取证辅助系统', self.table_cell_style)],
             [Paragraph('审计日期', self.table_header_style), Paragraph(datetime.now().strftime('%Y年%m月%d日 %H:%M:%S'), self.table_cell_style)],
             [Paragraph('员工姓名', self.table_header_style), Paragraph(audit_data.get('employee_name', '未指定'), self.table_cell_style)],
             [Paragraph('审计范围', self.table_header_style), Paragraph(audit_data.get('audit_range', '未指定'), self.table_cell_style)],
             [Paragraph('审计时间', self.table_header_style), Paragraph(audit_data.get('audit_time_range', '未指定'), self.table_cell_style)],
             [Paragraph('风险等级', self.table_header_style), Paragraph(audit_data.get('risk_level', {}).get('level', '未评估'), self.table_cell_style)]
         ]
+
+        data_sources = audit_data.get('data_sources', {})
+        for source_name, source_value in data_sources.items():
+            info_data.append([
+                Paragraph(source_name, self.table_header_style),
+                Paragraph(str(source_value), self.table_cell_style)
+            ])
         
         table = Table(info_data, colWidths=[100, 400])
         table.setStyle(TableStyle([
@@ -172,7 +212,7 @@ class PDFReportGenerator:
             ('TEXTCOLOR', (0, 0), (0, -1), colors.darkblue),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
+            ('FONTNAME', (0, 0), (-1, -1), self.font_name),
             ('FONTSIZE', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -204,7 +244,7 @@ class PDFReportGenerator:
                 elements.append(Paragraph(
                     f'{idx}. <b>{finding.get("rule_name", "")}</b> '
                     f'(规则ID: {finding.get("rule_id", "")}, 评分: {finding.get("score", 0)}分)',
-                    ParagraphStyle(f'FindingRow_{idx}', textColor=severity_color, fontSize=11, fontName='Chinese')
+                    ParagraphStyle(f'FindingRow_{idx}', textColor=severity_color, fontSize=11, fontName=self.font_name)
                 ))
                 elements.append(Paragraph(f'   描述：{finding.get("description", "")}', self.small_style))
                 elements.append(Spacer(1, 5))
@@ -237,17 +277,17 @@ class PDFReportGenerator:
                     
                     data.append([
                         Paragraph(str(idx), self.table_cell_style),
-                        Paragraph(finding.get('file_name', ''), self.table_cell_style),
+                        Paragraph(self._safe_text(finding.get('file_name', ''), 80), self.table_cell_style),
                         Paragraph(modify_time_str, self.table_cell_style),
-                        Paragraph(finding.get('description', ''), self.table_cell_style)
+                        Paragraph(self._safe_text(finding.get('description', ''), 240), self.table_cell_style)
                     ])
                 
-                table = Table(data, colWidths=[40, 150, 120, 200])
+                table = Table(data, colWidths=[40, 150, 120, 200], repeatRows=1)
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                     ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                    ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
+                    ('FONTNAME', (0, 0), (-1, -1), self.font_name),
                     ('FONTSIZE', (0, 0), (-1, -1), 9),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
                     ('TOPPADDING', (0, 0), (-1, -1), 4),
@@ -286,20 +326,25 @@ class PDFReportGenerator:
                         description = f"{title} - {url}"
                     else:
                         description = url
+                elif event_type == 'chat':
+                    sender = event.get('sender', '')
+                    receiver = event.get('receiver', '')
+                    content = event.get('content', '')
+                    description = f"{sender} -> {receiver}: {content[:80]}"
                 
                 data.append([
                     Paragraph(str(idx), self.table_cell_style),
                     Paragraph(time_str, self.table_cell_style),
-                    Paragraph(event_type, self.table_cell_style),
-                    Paragraph(description, self.table_cell_style)
+                    Paragraph(self._safe_text(event_type, 20), self.table_cell_style),
+                    Paragraph(self._safe_text(description, 260), self.table_cell_style)
                 ])
             
-            table = Table(data, colWidths=[35, 130, 70, 270])
+            table = Table(data, colWidths=[35, 130, 70, 270], repeatRows=1)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
+                ('FONTNAME', (0, 0), (-1, -1), self.font_name),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
                 ('TOPPADDING', (0, 0), (-1, -1), 3),
@@ -343,18 +388,18 @@ class PDFReportGenerator:
                 
                 data.append([
                     Paragraph(str(idx), self.table_cell_style),
-                    Paragraph(evidence.get('type', ''), self.table_cell_style),
-                    Paragraph(evidence.get('path', ''), self.table_cell_style),
-                    Paragraph(evidence.get('size', ''), self.table_cell_style),
+                    Paragraph(self._safe_text(evidence.get('type', ''), 40), self.table_cell_style),
+                    Paragraph(self._safe_text(evidence.get('path', ''), 260), self.table_cell_style),
+                    Paragraph(self._safe_text(evidence.get('size', ''), 20), self.table_cell_style),
                     Paragraph(time_str, self.table_cell_style)
                 ])
             
-            table = Table(data, colWidths=[35, 70, 310, 55, 125])
+            table = Table(data, colWidths=[35, 70, 310, 55, 125], repeatRows=1)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-                ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
+                ('FONTNAME', (0, 0), (-1, -1), self.font_name),
                 ('FONTSIZE', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
                 ('TOPPADDING', (0, 0), (-1, -1), 3),
@@ -372,11 +417,13 @@ class PDFReportGenerator:
         
         elements.append(Paragraph('1. 审计规则说明', self.heading2_style))
         rules = [
-            ('R001', '非工作时间密集文件操作', '夜间（0-6点）文件操作超过200次', 30),
-            ('R002', 'U盘异常使用', '30天内U盘插入超过5次且文件拷贝超过100次', 25),
-            ('R003', '聊天记录泄露', '发现3个以上泄露相关关键词', 40),
-            ('R004', '访问网盘/邮箱', '访问云存储或个人邮箱超过10次', 20),
-            ('R005', '大量文件打包', '创建超过5个大型压缩包', 15)
+            ('R000', '敏感内容命中', '指定目录中发现敏感内容证据，单类证据封顶', 20),
+            ('R001', '非工作时间密集文件操作', '审计时间范围内夜间文件操作较多', 30),
+            ('R002', 'U盘异常使用', '近期存在USB插拔或大量复制样本记录', 25),
+            ('R003', '聊天记录泄露', '聊天样本中发现泄露相关关键词', 40),
+            ('R004', '访问网盘/邮箱', '浏览器记录中出现云存储或邮箱访问', 20),
+            ('R005', '大量文件打包', '指定目录中发现压缩包证据', 15),
+            ('R006', '多源证据组合风险', '敏感文件、USB、压缩包、网盘/邮箱、聊天等多类证据组合出现', 25)
         ]
         
         data = [['规则ID', '规则名称', '触发条件', '风险评分']]
@@ -393,7 +440,7 @@ class PDFReportGenerator:
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('FONTNAME', (0, 0), (-1, -1), 'Chinese'),
+            ('FONTNAME', (0, 0), (-1, -1), self.font_name),
             ('FONTSIZE', (0, 0), (-1, -1), 9),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
             ('TOPPADDING', (0, 0), (-1, -1), 5),
@@ -408,6 +455,10 @@ class PDFReportGenerator:
         elements.append(Paragraph('- 中风险：30 <= 评分 < 60', self.normal_style))
         elements.append(Paragraph('- 低风险：0 < 评分 < 30', self.normal_style))
         elements.append(Paragraph('- 无风险：评分 = 0', self.normal_style))
+        
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph('3. 报告适用范围', self.heading2_style))
+        elements.append(Paragraph('本报告基于用户指定的本地工作目录及可选聊天记录、USB使用记录、浏览器记录等样本生成，用于课堂实训和授权取证场景下的辅助分析，不等同于企业级远程全量自动取证平台。', self.normal_style))
         
         elements.append(Spacer(1, 10))
         elements.append(Paragraph('报告生成时间：' + datetime.now().strftime('%Y年%m月%d日 %H:%M:%S'), self.small_style))

@@ -1,0 +1,34 @@
+[
+  {
+    "device_name": "Kingston DataTraveler",
+    "serial_number": "USB-KINGSTON-001",
+    "event_type": "insert",
+    "event_time": "2026-07-03 21:20:00"
+  },
+  {
+    "device_name": "Kingston DataTraveler",
+    "serial_number": "USB-KINGSTON-001",
+    "event_type": "remove",
+    "event_time": "2026-07-03 22:15:00"
+  },
+  {
+    "device_name": "SanDisk Ultra",
+    "serial_number": "USB-SANDISK-002",
+    "event_type": "insert",
+    "event_time": "2026-07-04 00:05:00"
+  },
+  {
+    "device_name": "SanDisk Ultra",
+    "serial_number": "USB-SANDISK-002",
+    "event_type": "copy",
+    "event_time": "2026-07-04 00:18:00",
+    "file_count": 128,
+    "description": "模拟大量文件复制到外接存储设备"
+  },
+  {
+    "device_name": "SanDisk Ultra",
+    "serial_number": "USB-SANDISK-002",
+    "event_type": "remove",
+    "event_time": "2026-07-04 00:45:00"
+  }
+]
