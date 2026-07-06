@@ -257,19 +257,23 @@ class PDFReportGenerator:
             if type_findings:
                 elements.append(Paragraph(f'{type_name}（共{len(type_findings)}条）', self.heading2_style))
                 
-                data = [['序号', '文件名', '修改时间', '发现内容']]
+                data = [['序号', '内容', '修改时间', '发现内容']]
                 for idx, finding in enumerate(type_findings, 1):
                     modify_time_val = finding.get('modify_time', '')
                     modify_time_str = modify_time_val.strftime('%Y-%m-%d %H:%M') if hasattr(modify_time_val, 'strftime') else ''
+                    display_name = finding.get('file_name', finding.get('file_path', ''))
+                    # 如果是本地文件，还是显示绝对路径
+                    if finding.get('file_path') and os.path.exists(finding.get('file_path')):
+                        display_name = os.path.abspath(finding.get('file_path'))
                     
                     data.append([
                         Paragraph(str(idx), self.table_cell_style),
-                        Paragraph(self._safe_text(finding.get('file_name', ''), 80), self.table_cell_style),
+                        Paragraph(self._safe_text(display_name, 150), self.table_cell_style),
                         Paragraph(modify_time_str, self.table_cell_style),
                         Paragraph(self._safe_text(finding.get('description', ''), 240), self.table_cell_style)
                     ])
                 
-                table = Table(data, colWidths=[40, 150, 120, 200], repeatRows=1)
+                table = Table(data, colWidths=[40, 220, 120, 170], repeatRows=1)
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -351,18 +355,25 @@ class PDFReportGenerator:
         
         file_scan_results = audit_data.get('file_scan_results', [])
         for file in file_scan_results:
+            file_path = file.get('file_path', '')
+            if file_path and os.path.exists(file_path):
+                file_path = os.path.abspath(file_path)
             all_evidence.append({
                 'type': '文件',
-                'path': file.get('file_path', ''),
+                'path': file_path,
                 'size': file.get('file_size_human', ''),
                 'modify_time': file.get('modify_time')
             })
         
         content_findings = audit_data.get('content_findings', [])
         for finding in content_findings:
+            display_path = finding.get('file_name', finding.get('file_path', ''))
+            # 如果是本地文件，还是显示绝对路径
+            if finding.get('file_path') and os.path.exists(finding.get('file_path')):
+                display_path = os.path.abspath(finding.get('file_path'))
             all_evidence.append({
                 'type': f'内容发现({finding.get("type", "")})',
-                'path': finding.get('file_path', ''),
+                'path': display_path,
                 'size': '',
                 'modify_time': finding.get('modify_time')
             })
@@ -381,7 +392,7 @@ class PDFReportGenerator:
                     Paragraph(time_str, self.table_cell_style)
                 ])
             
-            table = Table(data, colWidths=[35, 70, 310, 55, 125], repeatRows=1)
+            table = Table(data, colWidths=[35, 80, 280, 60, 140], repeatRows=1)
             table.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                 ('ALIGN', (0, 0), (-1, -1), 'LEFT'),

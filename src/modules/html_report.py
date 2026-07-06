@@ -68,7 +68,12 @@ class HTMLReportGenerator:
             for key, value in event.items():
                 if isinstance(value, datetime):
                     serialized[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                elif isinstance(value, (str, int, float, bool)):
+                elif isinstance(value, str):
+                    if key in ['file_path', 'file_name', 'path', 'url']:
+                        serialized[key] = os.path.abspath(value) if os.path.exists(value) else value
+                    else:
+                        serialized[key] = value
+                elif isinstance(value, (int, float, bool)):
                     serialized[key] = value
                 else:
                     try:
@@ -85,7 +90,12 @@ class HTMLReportGenerator:
             for key, value in finding.items():
                 if isinstance(value, datetime):
                     serialized[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                elif isinstance(value, (str, int, float, bool)):
+                elif isinstance(value, str):
+                    if key in ['file_path', 'file_name', 'path', 'url']:
+                        serialized[key] = os.path.abspath(value) if os.path.exists(value) else value
+                    else:
+                        serialized[key] = value
+                elif isinstance(value, (int, float, bool)):
                     serialized[key] = value
                 else:
                     try:
@@ -102,7 +112,12 @@ class HTMLReportGenerator:
             for key, value in file.items():
                 if isinstance(value, datetime):
                     serialized[key] = value.strftime('%Y-%m-%d %H:%M:%S')
-                elif isinstance(value, (str, int, float, bool)):
+                elif isinstance(value, str):
+                    if key in ['file_path', 'file_name', 'path', 'url']:
+                        serialized[key] = os.path.abspath(value) if os.path.exists(value) else value
+                    else:
+                        serialized[key] = value
+                elif isinstance(value, (int, float, bool)):
                     serialized[key] = value
                 else:
                     try:

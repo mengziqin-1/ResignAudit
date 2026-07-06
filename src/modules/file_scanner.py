@@ -47,7 +47,7 @@ class FileScanner:
             for filename in files:
                 if self._should_skip_file(filename):
                     continue
-                file_path = os.path.join(root, filename)
+                file_path = os.path.abspath(os.path.join(root, filename))
                 try:
                     file_info = self._get_file_info(file_path, audit_start_date, audit_end_date)
                     if file_info:

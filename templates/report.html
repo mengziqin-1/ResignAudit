@@ -51,8 +51,15 @@
         .table-container { overflow-x: auto; margin-top: 16px; }
         .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
         .data-table th { background: #f8f9fa; padding: 12px 16px; text-align: left; font-weight: 600; border-bottom: 2px solid #e9ecef; }
-        .data-table td { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; }
+        .data-table td { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; vertical-align: top; word-break: break-all; line-height: 1.5; }
         .data-table tr:hover { background: #f8f9fa; }
+        .data-table .col-index { width: 60px; text-align: center; }
+        .data-table .col-type { width: 100px; }
+        .data-table .col-path { width: 40%; min-width: 200px; }
+        .data-table .col-size { width: 80px; }
+        .data-table .col-time { width: 180px; }
+        .data-table .col-file-name { width: 40%; min-width: 200px; }
+        .data-table .col-desc { width: auto; }
         
         .timeline-controls { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
         .control-group { display: flex; align-items: center; gap: 8px; }
@@ -70,20 +77,20 @@
         .stat-value { font-weight: 600; color: #2a5298; }
         
         .timeline-container { max-height: 500px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; background: #fff; }
-        .timeline-row { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 16px; align-items: center; }
+        .timeline-row { padding: 10px 16px; border-bottom: 1px solid #f0f0f0; display: flex; gap: 16px; align-items: flex-start; }
         .timeline-row:hover { background: #f8f9fa; }
         .timeline-row.odd { background: #fafafa; }
         .timeline-row.marked { background: #fff3cd; }
         .timeline-col { flex-shrink: 0; }
-        .timeline-col.index { width: 50px; font-size: 12px; color: #999; text-align: center; }
-        .timeline-col.time { width: 170px; font-size: 13px; color: #666; font-family: monospace; }
+        .timeline-col.index { width: 50px; font-size: 12px; color: #999; text-align: center; padding-top: 2px; }
+        .timeline-col.time { width: 170px; font-size: 13px; color: #666; font-family: monospace; padding-top: 2px; }
         .timeline-col.type { width: 80px; font-size: 12px; padding: 2px 8px; border-radius: 4px; text-align: center; }
         .timeline-col.type-file { background: #e3f2fd; color: #1976d2; }
         .timeline-col.type-content { background: #fce4ec; color: #c2185b; }
         .timeline-col.type-usb { background: #e8f5e9; color: #2e7d32; }
         .timeline-col.type-browser { background: #fff3e0; color: #e65100; }
         .timeline-col.type-chat { background: #f3e5f5; color: #7b1fa2; }
-        .timeline-col.description { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .timeline-col.description { flex: 1; font-size: 13px; word-break: break-all; line-height: 1.5; }
         
         .type-filter { display: flex; gap: 8px; flex-wrap: wrap; }
         .type-tag { padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s; }
@@ -210,7 +217,7 @@
                     <div class="table-container">
                         <table class="data-table" id="evidence-table">
                             <thead>
-                                <tr><th>序号</th><th>类型</th><th>路径</th><th>大小</th><th>修改时间</th></tr>
+                                <tr><th class="col-index">序号</th><th class="col-type">类型</th><th class="col-path">路径</th><th class="col-size">大小</th><th class="col-time">修改时间</th></tr>
                             </thead>
                             <tbody id="evidence-body"></tbody>
                         </table>
@@ -335,55 +342,64 @@
         }
         
         function renderFindings() {
-            var statsContainer = document.getElementById('findings-stats');
-            var tableContainer = document.getElementById('findings-table-container');
-            var countInfo = document.getElementById('findings-count-info');
+        var statsContainer = document.getElementById('findings-stats');
+        var tableContainer = document.getElementById('findings-table-container');
+        var countInfo = document.getElementById('findings-count-info');
+        
+        var typeCounts = {};
+        Object.keys(findingTypeLabels).forEach(type => {
+            typeCounts[type] = type === 'all' ? findingsData.length : findingsData.filter(f => f.type === type).length;
+        });
+        
+        var statsHtml = '';
+        Object.entries(findingTypeLabels).forEach(([type, label]) => {
+            var isActive = type === currentFindingsType;
+            var count = typeCounts[type] || 0;
+            if (type !== 'all' && count === 0) return;
             
-            var typeCounts = {};
-            Object.keys(findingTypeLabels).forEach(type => {
-                typeCounts[type] = type === 'all' ? findingsData.length : findingsData.filter(f => f.type === type).length;
-            });
-            
-            var statsHtml = '';
-            Object.entries(findingTypeLabels).forEach(([type, label]) => {
-                var isActive = type === currentFindingsType;
-                var count = typeCounts[type] || 0;
-                if (type !== 'all' && count === 0) return;
-                
-                statsHtml += `
-                    <div class="findings-tab ${isActive ? 'active' : ''}" onclick="switchFindingsType('${type}')">
-                        ${label}<span class="findings-tab-count">(${count})</span>
-                    </div>
-                `;
-            });
-            statsContainer.innerHTML = statsHtml;
-            
-            var displayedFindings = currentFindingsType === 'all' ? findingsData : findingsData.filter(f => f.type === currentFindingsType);
-            
-            var tableHtml = `
-                <table class="data-table">
-                    <thead>
-                        <tr><th>序号</th><th>文件名</th><th>修改时间</th><th>发现内容</th></tr>
-                    </thead>
-                    <tbody>
+            statsHtml += `
+                <div class="findings-tab ${isActive ? 'active' : ''}" onclick="switchFindingsType('${type}')">
+                    ${label}<span class="findings-tab-count">(${count})</span>
+                </div>
             `;
-            
-            if (displayedFindings.length === 0) {
+        });
+        statsContainer.innerHTML = statsHtml;
+        
+        var displayedFindings = currentFindingsType === 'all' ? findingsData : findingsData.filter(f => f.type === currentFindingsType);
+        
+        var tableHtml = `
+            <table class="data-table">
+                <thead>
+                    <tr><th class="col-index">序号</th><th class="col-file-name">文件路径</th><th class="col-time">修改时间</th><th class="col-desc">发现内容</th></tr>
+                </thead>
+                <tbody>
+        `;
+        
+        if (displayedFindings.length === 0) {
+            tableHtml += `
+                <tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">暂无该类型审计发现</td></tr>
+            `;
+        } else {
+            displayedFindings.forEach((f, i) => {
+                var displayName = '';
+                // 判断是本地文件还是URL
+                if (f.file_path && (f.file_path.startsWith('http://') || f.file_path.startsWith('https://'))) {
+                    // 是URL，优先显示file_name(title)
+                    displayName = f.file_name || f.file_path;
+                } else {
+                    // 是本地文件，显示file_path(绝对路径)
+                    displayName = f.file_path || f.file_name;
+                }
                 tableHtml += `
-                    <tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">暂无该类型审计发现</td></tr>
+                    <tr>
+                        <td class="col-index">${i+1}</td>
+                        <td class="col-file-name">${escapeHtml(displayName || '')}</td>
+                        <td class="col-time">${formatTime(f.modify_time)}</td>
+                        <td class="col-desc">${escapeHtml(f.description || '')}</td>
+                    </tr>
                 `;
-            } else {
-                displayedFindings.forEach((f, i) => {
-                    tableHtml += `
-                        <tr>
-                            <td>${i+1}</td>
-                            <td>${escapeHtml(f.file_name || '')}</td>
-                            <td>${formatTime(f.modify_time)}</td>
-                            <td>${escapeHtml(f.description || '')}</td>
-                        </tr>
-                    `;
-                });
-            }
+            });
+        }
             
             tableHtml += '</tbody></table>';
             tableContainer.innerHTML = tableHtml;
@@ -414,9 +430,18 @@
             });
             
             contentFindings.forEach(finding => {
+                var displayPath = '';
+                // 判断是本地文件还是URL
+                if (finding.file_path && (finding.file_path.startsWith('http://') || finding.file_path.startsWith('https://'))) {
+                    // 是URL，优先显示file_name(title)
+                    displayPath = finding.file_name || finding.file_path;
+                } else {
+                    // 是本地文件，显示file_path(绝对路径)
+                    displayPath = finding.file_path || finding.file_name;
+                }
                 allEvidence.push({
                     type: '内容发现(' + (finding.type || '') + ')',
-                    path: finding.file_path || '',
+                    path: displayPath,
                     size: '',
                     modify_time: finding.modify_time
                 });
@@ -425,11 +450,11 @@
             var html = '';
             allEvidence.forEach((evidence, i) => {
                 html += `<tr>
-                    <td>${i+1}</td>
-                    <td>${escapeHtml(evidence.type)}</td>
-                    <td>${escapeHtml(evidence.path)}</td>
-                    <td>${escapeHtml(evidence.size)}</td>
-                    <td>${formatTime(evidence.modify_time)}</td>
+                    <td class="col-index">${i+1}</td>
+                    <td class="col-type">${escapeHtml(evidence.type)}</td>
+                    <td class="col-path">${escapeHtml(evidence.path)}</td>
+                    <td class="col-size">${escapeHtml(evidence.size)}</td>
+                    <td class="col-time">${formatTime(evidence.modify_time)}</td>
                 </tr>`;
             });
             
@@ -523,7 +548,7 @@
                 var typeLabel = typeLabels[type] || type;
                 var desc = '';
                 
-                if (type === 'file') desc = event.file_name || '';
+                if (type === 'file') desc = event.file_path || event.file_name || '';
                 else if (type === 'content') desc = event.description || '';
                 else if (type === 'usb') desc = event.device_name || 'USB设备操作';
                 else if (type === 'browser') {
