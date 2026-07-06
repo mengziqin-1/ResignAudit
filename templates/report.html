@@ -89,6 +89,14 @@
         .type-tag { padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s; }
         .type-tag.active { background: #2a5298; color: #fff; border-color: #2a5298; }
         
+        .findings-stats { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+        .findings-tab { padding: 10px 16px; background: #f8f9fa; border-radius: 4px; font-size: 14px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s; }
+        .findings-tab:hover { background: #e9ecef; }
+        .findings-tab.active { background: #2a5298; color: #fff; border-color: #2a5298; }
+        .findings-tab-count { font-weight: 600; margin-left: 4px; }
+        
+        .findings-table-container { max-height: 400px; overflow-y: auto; border: 1px solid #e9ecef; border-radius: 8px; margin-top: 12px; }
+        
         .footer { text-align: center; padding: 20px; color: #999; font-size: 12px; border-top: 1px solid #e9ecef; }
         
         @media (max-width: 768px) {
@@ -144,7 +152,14 @@
                     <div class="card-header">
                         <div class="card-title">详细审计发现</div>
                     </div>
-                    <div id="findings-content"></div>
+                    
+                    <div class="findings-stats" id="findings-stats"></div>
+                    
+                    <div class="findings-table-container" id="findings-table-container"></div>
+                    
+                    <div style="margin-top: 12px; text-align: center; font-size: 13px; color: #666;">
+                        <span id="findings-count-info">共 0 条</span>
+                    </div>
                 </div>
             </div>
             
@@ -213,6 +228,8 @@
         var REPORT_DATA = null;
         var timelineData = [];
         var filteredTimeline = [];
+        var findingsData = [];
+        var currentFindingsType = 'all';
         
         var typeColors = {
             'file': 'type-file',
@@ -230,9 +247,20 @@
             'chat': '聊天'
         };
         
+        var findingTypeLabels = {
+            'all': '全部',
+            'sensitive_keyword': '敏感关键词',
+            'cloud_storage': '云存储相关',
+            'email': '邮箱相关',
+            'email_address': '邮箱地址',
+            'phone_number': '手机号码',
+            'ip_address': 'IP地址'
+        };
+        
         function init(data) {
             REPORT_DATA = data;
             timelineData = data.timeline || [];
+            findingsData = data.content_findings || [];
             filteredTimeline = [...timelineData];
             
             renderSummary();
@@ -307,41 +335,65 @@
         }
         
         function renderFindings() {
-            var data = REPORT_DATA;
-            var content = document.getElementById('findings-content');
+            var statsContainer = document.getElementById('findings-stats');
+            var tableContainer = document.getElementById('findings-table-container');
+            var countInfo = document.getElementById('findings-count-info');
             
-            var findingTypes = {
-                'sensitive_keyword': '敏感关键词',
-                'cloud_storage': '云存储相关',
-                'email': '邮箱相关',
-                'email_address': '邮箱地址',
-                'phone_number': '手机号码',
-                'ip_address': 'IP地址'
-            };
-            
-            var contentFindings = data.content_findings || [];
-            var html = '';
-            
-            Object.entries(findingTypes).forEach(([type, label]) => {
-                var typeFindings = contentFindings.filter(f => f.type === type);
-                if (typeFindings.length === 0) return;
-                
-                html += `<h3 style="margin: 16px 0 12px; color: #2a5298;">${label}（共${typeFindings.length}条）</h3>`;
-                html += '<table class="data-table"><thead><tr><th>序号</th><th>文件名</th><th>修改时间</th><th>发现内容</th></tr></thead><tbody>';
-                
-                typeFindings.forEach((f, i) => {
-                    html += `<tr>
-                        <td>${i+1}</td>
-                        <td>${escapeHtml(f.file_name || '')}</td>
-                        <td>${formatTime(f.modify_time)}</td>
-                        <td>${escapeHtml(f.description || '')}</td>
-                    </tr>`;
-                });
-                
-                html += '</tbody></table>';
+            var typeCounts = {};
+            Object.keys(findingTypeLabels).forEach(type => {
+                typeCounts[type] = type === 'all' ? findingsData.length : findingsData.filter(f => f.type === type).length;
             });
             
-            content.innerHTML = html || '<div style="text-align: center; color: #999; padding: 40px;">暂无详细审计发现</div>';
+            var statsHtml = '';
+            Object.entries(findingTypeLabels).forEach(([type, label]) => {
+                var isActive = type === currentFindingsType;
+                var count = typeCounts[type] || 0;
+                if (type !== 'all' && count === 0) return;
+                
+                statsHtml += `
+                    <div class="findings-tab ${isActive ? 'active' : ''}" onclick="switchFindingsType('${type}')">
+                        ${label}<span class="findings-tab-count">(${count})</span>
+                    </div>
+                `;
+            });
+            statsContainer.innerHTML = statsHtml;
+            
+            var displayedFindings = currentFindingsType === 'all' ? findingsData : findingsData.filter(f => f.type === currentFindingsType);
+            
+            var tableHtml = `
+                <table class="data-table">
+                    <thead>
+                        <tr><th>序号</th><th>文件名</th><th>修改时间</th><th>发现内容</th></tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            if (displayedFindings.length === 0) {
+                tableHtml += `
+                    <tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">暂无该类型审计发现</td></tr>
+                `;
+            } else {
+                displayedFindings.forEach((f, i) => {
+                    tableHtml += `
+                        <tr>
+                            <td>${i+1}</td>
+                            <td>${escapeHtml(f.file_name || '')}</td>
+                            <td>${formatTime(f.modify_time)}</td>
+                            <td>${escapeHtml(f.description || '')}</td>
+                        </tr>
+                    `;
+                });
+            }
+            
+            tableHtml += '</tbody></table>';
+            tableContainer.innerHTML = tableHtml;
+            
+            countInfo.textContent = `共 ${displayedFindings.length} 条`;
+        }
+        
+        function switchFindingsType(type) {
+            currentFindingsType = type;
+            renderFindings();
         }
         
         function renderEvidence() {
