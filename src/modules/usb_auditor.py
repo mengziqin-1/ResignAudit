@@ -6,7 +6,7 @@ try:
 except ImportError:
     winreg = None
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class USBAuditor:
     def __init__(self):
@@ -170,6 +170,21 @@ class USBAuditor:
                 except WindowsError:
                     pass
                 
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
+                
                 return info
             finally:
                 winreg.CloseKey(hkey)
@@ -251,6 +266,27 @@ class USBAuditor:
                 except WindowsError:
                     pass
                 
+                try:
+                    last_access, _ = winreg.QueryValueEx(hkey, 'LastAccessTime')
+                    info['last_insert_time'] = self._parse_registry_time(last_access)
+                except WindowsError:
+                    pass
+                
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
+                
                 return info
             finally:
                 winreg.CloseKey(hkey)
@@ -301,6 +337,21 @@ class USBAuditor:
                 
                 info['serial_number'] = os.path.basename(device_path)
                 
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
+                
                 return info
             finally:
                 winreg.CloseKey(hkey)
@@ -349,6 +400,22 @@ class USBAuditor:
                 return datetime.fromtimestamp(int.from_bytes(time_value, 'little'))
             except:
                 return None
+        elif isinstance(time_value, int):
+            try:
+                epoch_start = datetime(1601, 1, 1)
+                nanoseconds_100 = time_value
+                seconds = nanoseconds_100 // 10000000
+                return epoch_start + timedelta(seconds=seconds)
+            except:
+                return None
+        elif isinstance(time_value, float):
+            try:
+                epoch_start = datetime(1601, 1, 1)
+                nanoseconds_100 = int(time_value)
+                seconds = nanoseconds_100 // 10000000
+                return epoch_start + timedelta(seconds=seconds)
+            except:
+                return None
         return None
     
     def get_usb_insertions_count(self, days=30):
@@ -358,6 +425,30 @@ class USBAuditor:
             if device['last_insert_time'] and device['last_insert_time'] >= cutoff_date:
                 count += 1
         return count
+    
+    def get_short_time_insertions(self, hours=4):
+        devices_with_time = []
+        for device in self.usb_devices:
+            if device['last_insert_time']:
+                devices_with_time.append(device['last_insert_time'])
+        
+        if len(devices_with_time) < 2:
+            return 0
+        
+        devices_with_time.sort()
+        
+        max_in_window = 0
+        for i, time1 in enumerate(devices_with_time):
+            window_end = time1 + timedelta(hours=hours)
+            count = 0
+            for time2 in devices_with_time[i:]:
+                if time2 <= window_end:
+                    count += 1
+                else:
+                    break
+            max_in_window = max(max_in_window, count)
+        
+        return max_in_window
     
     def get_usb_file_copies(self):
         total = 0

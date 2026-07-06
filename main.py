@@ -23,19 +23,19 @@ from modules.chat_auditor import ChatAuditor
 from modules.timeline_aggregator import TimelineAggregator
 from modules.rule_engine import RuleEngine
 from modules.pdf_report import PDFReportGenerator
+from modules.html_report import HTMLReportGenerator
 
 class AuditThread(QThread):
     progress_update = pyqtSignal(int, str)
     audit_complete = pyqtSignal(dict)
     
-    def __init__(self, employee_name, directory_path, start_date, end_date, chat_db_path='', usb_json_path=''):
+    def __init__(self, employee_name, directory_path, start_date, end_date, chat_db_path=''):
         super().__init__()
         self.employee_name = employee_name
         self.directory_path = directory_path
         self.start_date = start_date
         self.end_date = end_date
         self.chat_db_path = chat_db_path
-        self.usb_json_path = usb_json_path
     
     def run(self):
         try:
@@ -57,6 +57,11 @@ class AuditThread(QThread):
                 lambda msg: self.progress_update.emit(10, msg)
             )
             
+            self.progress_update.emit(15, '①-2 压缩包检查：分析压缩包内部文件结构...')
+            archive_inspection = file_scanner.inspect_archives(
+                lambda msg: self.progress_update.emit(15, msg)
+            )
+            
             self.progress_update.emit(25, '② 内容分析：提取文档文本并匹配敏感关键词...')
             content_findings = content_analyzer.analyze_files(
                 file_results,
@@ -71,8 +76,7 @@ class AuditThread(QThread):
             
             self.progress_update.emit(55, '④ USB设备审计：读取注册表提取U盘插拔记录...')
             usb_devices, usb_operations = usb_auditor.audit_usb_devices(
-                lambda msg: self.progress_update.emit(55, msg),
-                self.usb_json_path
+                lambda msg: self.progress_update.emit(55, msg)
             )
             
             self.progress_update.emit(70, '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...')
@@ -97,6 +101,7 @@ class AuditThread(QThread):
                 'chat_leak_keywords_found': chat_auditor.get_leak_keywords_count(),
                 'browser_cloud_visits': browser_analyzer.get_cloud_visits_count(30),
                 'large_archives_created': len(file_scanner.get_large_archives(min_size_mb=0.001)),
+                'archive_inspection': archive_inspection,
                 'content_sensitive_findings': sum(1 for f in content_findings if f.get('type') == 'sensitive_keyword')
             }
             
@@ -106,7 +111,21 @@ class AuditThread(QThread):
             self.progress_update.emit(95, '生成PDF报告...')
             
             browser_findings = browser_analyzer.get_findings()
-            all_findings = content_findings + browser_findings
+            
+            archive_findings = []
+            for archive in archive_inspection:
+                if archive.get('sensitive_hit_count', 0) > 0:
+                    archive_findings.append({
+                        'type': 'sensitive_keyword',
+                        'file_path': archive['archive_path'],
+                        'file_name': archive['archive_name'],
+                        'modify_time': archive['modify_time'],
+                        'matched_keywords': archive['sensitive_inner_hits'][:10],
+                        'severity': 'high' if archive['sensitive_hit_count'] >= 5 else 'medium',
+                        'description': f"压缩包内文件名命中敏感关键词（{archive['sensitive_hit_count']}个）: {', '.join(archive['sensitive_inner_hits'][:5])}"
+                    })
+            
+            all_findings = content_findings + browser_findings + archive_findings
             
             report_data = {
                 'employee_name': self.employee_name,
@@ -123,7 +142,11 @@ class AuditThread(QThread):
             report_generator = PDFReportGenerator()
             report_path = report_generator.generate_report(report_data)
             
+            html_generator = HTMLReportGenerator()
+            html_report_path = html_generator.generate_report(report_data)
+            
             report_data['report_path'] = report_path
+            report_data['html_report_path'] = html_report_path
             report_data['scan_results'] = scan_results
             report_data['chat_summary'] = chat_auditor.get_summary()
             report_data['browser_summary'] = browser_analyzer.get_summary()
@@ -140,7 +163,7 @@ class AuditThread(QThread):
         return {
             '工作目录': self.directory_path,
             '聊天记录样本': self.chat_db_path or '未指定，尝试读取本机默认聊天目录',
-            'USB使用记录样本': self.usb_json_path or '未指定，尝试读取本机注册表'
+            'USB使用记录': '读取本机注册表'
         }
 
 class MainWindow(QMainWindow):
@@ -185,14 +208,7 @@ class MainWindow(QMainWindow):
         browse_chat_btn.clicked.connect(self.browse_chat_db)
         input_layout.addWidget(browse_chat_btn, 2, 2)
         
-        input_layout.addWidget(QLabel('USB记录样本：'), 3, 0)
-        self.usb_json_edit = QLineEdit()
-        self.usb_json_edit.setPlaceholderText('可选：test_data/mock_usb_events.json')
-        input_layout.addWidget(self.usb_json_edit, 3, 1)
-        
-        browse_usb_btn = QPushButton('选择')
-        browse_usb_btn.clicked.connect(self.browse_usb_json)
-        input_layout.addWidget(browse_usb_btn, 3, 2)
+
         
         input_layout.addWidget(QLabel('审计开始日期：'), 4, 0)
         self.start_date_edit = QDateEdit(QDate.currentDate().addDays(-30))
@@ -240,6 +256,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.tabs)
         
         self.report_path = None
+        self.html_report_path = None
     
     def create_tabs(self):
         self.findings_tab = QWidget()
@@ -276,16 +293,12 @@ class MainWindow(QMainWindow):
         if file_path:
             self.chat_db_edit.setText(file_path)
 
-    def browse_usb_json(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, '选择USB记录JSON样本', '', 'JSON文件 (*.json);;所有文件 (*)')
-        if file_path:
-            self.usb_json_edit.setText(file_path)
+
     
     def start_audit(self):
         employee_name = self.employee_name_edit.text().strip()
         directory_path = self.directory_edit.text().strip()
         chat_db_path = self.chat_db_edit.text().strip()
-        usb_json_path = self.usb_json_edit.text().strip()
         start_date = self.start_date_edit.date().toPyDate()
         end_date = self.end_date_edit.date().toPyDate()
         
@@ -304,10 +317,6 @@ class MainWindow(QMainWindow):
         if chat_db_path and not os.path.exists(chat_db_path):
             QMessageBox.warning(self, '警告', '指定的聊天记录样本不存在')
             return
-
-        if usb_json_path and not os.path.exists(usb_json_path):
-            QMessageBox.warning(self, '警告', '指定的USB记录样本不存在')
-            return
         
         if start_date > end_date:
             QMessageBox.warning(self, '警告', '开始日期不能大于结束日期')
@@ -317,7 +326,7 @@ class MainWindow(QMainWindow):
         self.log_text.clear()
         self.progress_bar.setValue(0)
         
-        self.audit_thread = AuditThread(employee_name, directory_path, start_date, end_date, chat_db_path, usb_json_path)
+        self.audit_thread = AuditThread(employee_name, directory_path, start_date, end_date, chat_db_path)
         self.audit_thread.progress_update.connect(self.update_progress)
         self.audit_thread.audit_complete.connect(self.handle_audit_complete)
         self.audit_thread.start()
@@ -335,8 +344,10 @@ class MainWindow(QMainWindow):
     
     def handle_audit_complete(self, report_data):
         self.report_path = report_data.get('report_path')
+        self.html_report_path = report_data.get('html_report_path')
         
-        self.log_text.append(f'📄 报告已生成: {self.report_path}')
+        self.log_text.append(f'📄 PDF报告已生成: {self.report_path}')
+        self.log_text.append(f'🌐 HTML报告已生成: {self.html_report_path}')
         self.open_report_btn.setEnabled(True)
         self.start_btn.setEnabled(True)
         
@@ -433,13 +444,23 @@ class MainWindow(QMainWindow):
             self.risk_table.setItem(row, 3, desc_item)
     
     def open_report(self):
+        # 优先打开HTML报告
+        if self.html_report_path and os.path.exists(self.html_report_path):
+            try:
+                subprocess.Popen(['start', self.html_report_path], shell=True)
+                return
+            except Exception as e:
+                QMessageBox.warning(self, '警告', f'无法打开HTML报告: {str(e)}')
+        
+        # 如果HTML不存在，再尝试打开PDF
         if self.report_path and os.path.exists(self.report_path):
             try:
                 subprocess.Popen(['start', self.report_path], shell=True)
+                return
             except Exception as e:
-                QMessageBox.warning(self, '警告', f'无法打开报告: {str(e)}')
-        else:
-            QMessageBox.warning(self, '警告', '报告不存在')
+                QMessageBox.warning(self, '警告', f'无法打开PDF报告: {str(e)}')
+        
+        QMessageBox.warning(self, '警告', '报告不存在')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

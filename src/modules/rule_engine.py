@@ -76,18 +76,29 @@ class RuleEngine:
         
         usb_insertions = scan_results.get('usb_insertions_last_30_days', 0)
         usb_file_copies = scan_results.get('usb_file_copies', 0)
+        short_time_insertions = scan_results.get('usb_short_time_insertions', 0)
         
-        if usb_insertions >= 2 or usb_file_copies >= 50:
+        reasons = []
+        if usb_insertions >= 2:
+            reasons.append(f"{usb_insertions}次插入")
+        if usb_file_copies >= 50:
+            reasons.append(f"{usb_file_copies}次文件复制")
+        if short_time_insertions >= 3:
+            reasons.append(f"{short_time_insertions}次短时间密集插入")
+        
+        if reasons:
             score = 15
-            if usb_insertions > 5 or usb_file_copies > 100:
+            if usb_insertions > 5 or usb_file_copies > 100 or short_time_insertions >= 5:
                 score = 25
+            
+            description = f"U盘异常使用：{', '.join(reasons)}，存在数据外传风险"
             finding = {
                 'rule_id': 'R002',
                 'rule_name': 'U盘异常使用',
                 'severity': 'high' if score >= 25 else 'medium',
                 'score': score,
-                'description': f"频繁使用U盘（{usb_insertions}次插入）并大量拷贝文件（{usb_file_copies}次），存在数据外传风险",
-                'evidence_count': usb_insertions + usb_file_copies
+                'description': description,
+                'evidence_count': usb_insertions + usb_file_copies + short_time_insertions
             }
         
         return score, finding
@@ -133,15 +144,60 @@ class RuleEngine:
         finding = None
         
         large_archives = scan_results.get('large_archives_created', 0)
-        if large_archives > 0:
+        archive_inspection = scan_results.get('archive_inspection', [])
+        
+        suspicious_count = 0
+        total_sensitive_hits = 0
+        total_large_inner_count = 0
+        evidence_details = []
+        
+        for archive in archive_inspection:
+            if archive.get('sensitive_hit_count', 0) > 0:
+                suspicious_count += 1
+                total_sensitive_hits += archive['sensitive_hit_count']
+                evidence_details.append(f"{archive['archive_name']} 内含 {archive['sensitive_hit_count']} 个敏感文件")
+            
+            if archive.get('inner_file_count', 0) > 50:
+                total_large_inner_count += 1
+                evidence_details.append(f"{archive['archive_name']} 内含 {archive['inner_file_count']} 个文件")
+        
+        if large_archives > 0 or suspicious_count > 0:
             score = 10 if large_archives <= 5 else 15
+            
+            if suspicious_count > 0:
+                score += 5 * suspicious_count
+                if suspicious_count >= 3:
+                    score += 5
+            
+            if total_large_inner_count > 0:
+                score += 5 * min(total_large_inner_count, 3)
+            
+            score = min(score, 30)
+            
+            severity = 'medium'
+            if suspicious_count >= 3 or total_sensitive_hits >= 10:
+                severity = 'high'
+            elif suspicious_count >= 1:
+                severity = 'medium'
+            
+            description_parts = []
+            if large_archives > 0:
+                description_parts.append(f"发现 {large_archives} 个压缩包")
+            if suspicious_count > 0:
+                description_parts.append(f"{suspicious_count} 个压缩包内含敏感文件（共 {total_sensitive_hits} 个敏感文件名）")
+            if total_large_inner_count > 0:
+                description_parts.append(f"{total_large_inner_count} 个压缩包内含大量文件（>50个）")
+            
+            description = "、".join(description_parts) + "，可能用于打包带走数据"
+            
             finding = {
                 'rule_id': 'R005',
                 'rule_name': '大量文件打包',
-                'severity': 'medium',
+                'severity': severity,
                 'score': score,
-                'description': f"创建大量压缩包（{large_archives}个），可能用于打包带走数据",
-                'evidence_count': large_archives
+                'description': description,
+                'evidence_count': large_archives + suspicious_count,
+                'evidence_details': evidence_details[:10]
             }
         
         return score, finding
@@ -189,6 +245,6 @@ class RuleEngine:
             {'rule_id': 'R002', 'name': 'U盘异常使用', 'max_score': 25, 'severity': 'high'},
             {'rule_id': 'R003', 'name': '聊天记录泄露', 'max_score': 40, 'severity': 'critical'},
             {'rule_id': 'R004', 'name': '访问网盘/邮箱', 'max_score': 20, 'severity': 'medium'},
-            {'rule_id': 'R005', 'name': '大量文件打包', 'max_score': 15, 'severity': 'medium'},
+            {'rule_id': 'R005', 'name': '大量文件打包', 'max_score': 30, 'severity': 'high'},
             {'rule_id': 'R006', 'name': '多源证据组合风险', 'max_score': 25, 'severity': 'high'}
         ]

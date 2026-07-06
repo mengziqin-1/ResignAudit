@@ -146,12 +146,14 @@ class PDFReportGenerator:
         return text
     
     def generate_report(self, audit_data, output_path=None):
-        print('[PDF DEBUG] Starting PDF generation...')
-        
         if output_path is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            report_name = f'离职安全审计报告_{audit_data["employee_name"]}_{timestamp}.pdf'
-            output_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports', report_name)
+            employee_name = audit_data["employee_name"]
+            report_name = f'离职安全审计报告_{employee_name}_{timestamp}.pdf'
+            reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports')
+            employee_dir = os.path.join(reports_dir, employee_name)
+            os.makedirs(employee_dir, exist_ok=True)
+            output_path = os.path.join(employee_dir, report_name)
         
         output_dir = os.path.dirname(output_path)
         if output_dir:
@@ -163,28 +165,13 @@ class PDFReportGenerator:
         elements.append(Paragraph('离职场景电子数据取证分析报告', self.title_style))
         elements.append(Spacer(1, 12))
         
-        print('[PDF DEBUG] Adding report info...')
         self._add_report_info(elements, audit_data)
-        
-        print('[PDF DEBUG] Adding risk summary...')
         self._add_risk_summary(elements, audit_data)
-        
-        print('[PDF DEBUG] Adding findings...')
         self._add_findings(elements, audit_data)
-        
-        print('[PDF DEBUG] Adding timeline...')
-        self._add_timeline(elements, audit_data)
-        
-        print('[PDF DEBUG] Adding evidence list...')
         self._add_evidence_list(elements, audit_data)
-        
-        print('[PDF DEBUG] Adding appendix...')
         self._add_appendix(elements)
         
-        print('[PDF DEBUG] Building document...')
         doc.build(elements)
-        
-        print(f'[PDF DEBUG] PDF generated successfully: {output_path}')
         return output_path
     
     def _add_report_info(self, elements, audit_data):
@@ -358,7 +345,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_evidence_list(self, elements, audit_data):
-        elements.append(Paragraph('五、证据清单', self.heading1_style))
+        elements.append(Paragraph('四、证据清单', self.heading1_style))
         
         all_evidence = []
         
@@ -413,7 +400,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_appendix(self, elements):
-        elements.append(Paragraph('六、附录', self.heading1_style))
+        elements.append(Paragraph('五、附录', self.heading1_style))
         
         elements.append(Paragraph('1. 审计规则说明', self.heading2_style))
         rules = [

@@ -3,7 +3,7 @@ import re
 import sqlite3
 import shutil
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class BrowserAnalyzer:
     def __init__(self):
@@ -192,7 +192,7 @@ class BrowserAnalyzer:
             return None
         epoch_start = datetime(1601, 1, 1)
         try:
-            return epoch_start + pd.Timedelta(microseconds=chrome_time)
+            return epoch_start + timedelta(microseconds=chrome_time)
         except:
             return None
     

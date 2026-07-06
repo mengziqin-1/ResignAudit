@@ -17,13 +17,14 @@ from modules.chat_auditor import ChatAuditor
 from modules.timeline_aggregator import TimelineAggregator
 from modules.rule_engine import RuleEngine
 from modules.pdf_report import PDFReportGenerator
+from modules.html_report import HTMLReportGenerator
 
 app = Flask(__name__)
 CORS(app)
 
 audit_tasks = {}
 
-def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path='', usb_json_path=''):
+def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path=''):
     try:
         audit_tasks[task_id]['status'] = 'running'
         audit_tasks[task_id]['progress'] = 5
@@ -43,6 +44,12 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         
         file_results = file_scanner.scan_directory(directory_path, start_date, end_date)
         
+        audit_tasks[task_id]['progress'] = 15
+        audit_tasks[task_id]['message'] = '①-2 压缩包检查：分析压缩包内部文件结构...'
+        time.sleep(1)
+        
+        archive_inspection = file_scanner.inspect_archives()
+        
         audit_tasks[task_id]['progress'] = 25
         audit_tasks[task_id]['message'] = '② 内容分析：提取文档文本并匹配敏感关键词...'
         time.sleep(1)
@@ -55,19 +62,19 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         
         chat_records = chat_auditor.audit_chat_records(mock_db_path=chat_db_path)
         
-        audit_tasks[task_id]['progress'] = 55
+        audit_tasks[task_id]['progress'] = 60
         audit_tasks[task_id]['message'] = '④ USB设备审计：读取注册表提取U盘插拔记录...'
         time.sleep(1)
         
-        usb_devices, usb_operations = usb_auditor.audit_usb_devices(mock_json_path=usb_json_path)
+        usb_devices, usb_operations = usb_auditor.audit_usb_devices()
         
-        audit_tasks[task_id]['progress'] = 70
+        audit_tasks[task_id]['progress'] = 75
         audit_tasks[task_id]['message'] = '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...'
         time.sleep(1)
         
         browser_history, cloud_visits, email_visits = browser_analyzer.analyze_browsers()
         
-        audit_tasks[task_id]['progress'] = 85
+        audit_tasks[task_id]['progress'] = 90
         audit_tasks[task_id]['message'] = '⑥ 时间线聚合：将所有事件按时间排序...'
         time.sleep(1)
         
@@ -78,17 +85,19 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         timeline_aggregator.add_events(chat_records, 'chat')
         timeline = timeline_aggregator.build_timeline()
         
-        audit_tasks[task_id]['progress'] = 90
+        audit_tasks[task_id]['progress'] = 95
         audit_tasks[task_id]['message'] = '规则引擎汇总分析：计算风险评分...'
         time.sleep(1)
         
         scan_results = {
             'night_time_file_operations': file_scanner.get_night_time_operations(),
             'usb_insertions_last_30_days': usb_auditor.get_usb_insertions_count(30),
+            'usb_short_time_insertions': usb_auditor.get_short_time_insertions(4),
             'usb_file_copies': usb_auditor.get_usb_file_copies(),
             'chat_leak_keywords_found': chat_auditor.get_leak_keywords_count(),
             'browser_cloud_visits': browser_analyzer.get_cloud_visits_count(30),
             'large_archives_created': len(file_scanner.get_large_archives(min_size_mb=0.001)),
+            'archive_inspection': archive_inspection,
             'content_sensitive_findings': sum(1 for f in content_findings if f.get('type') == 'sensitive_keyword')
         }
         
@@ -100,7 +109,21 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         time.sleep(1)
         
         browser_findings = browser_analyzer.get_findings()
-        all_findings = content_findings + browser_findings
+        
+        archive_findings = []
+        for archive in archive_inspection:
+            if archive.get('sensitive_hit_count', 0) > 0:
+                archive_findings.append({
+                    'type': 'sensitive_keyword',
+                    'file_path': archive['archive_path'],
+                    'file_name': archive['archive_name'],
+                    'modify_time': archive['modify_time'],
+                    'matched_keywords': archive['sensitive_inner_hits'][:10],
+                    'severity': 'high' if archive['sensitive_hit_count'] >= 5 else 'medium',
+                    'description': f"压缩包内文件名命中敏感关键词（{archive['sensitive_hit_count']}个）: {', '.join(archive['sensitive_inner_hits'][:5])}"
+                })
+        
+        all_findings = content_findings + browser_findings + archive_findings
         
         report_data = {
             'employee_name': employee_name,
@@ -109,7 +132,7 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
             'data_sources': {
                 '工作目录': directory_path,
                 '聊天记录样本': chat_db_path or '未指定，尝试读取本机默认聊天目录',
-                'USB使用记录样本': usb_json_path or '未指定，尝试读取本机注册表'
+                'USB使用记录': '读取本机注册表'
             },
             'risk_level': risk_assessment['risk_level'],
             'findings': risk_assessment['findings'],
@@ -121,7 +144,11 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         report_generator = PDFReportGenerator()
         report_path = report_generator.generate_report(report_data)
         
+        html_generator = HTMLReportGenerator()
+        html_report_path = html_generator.generate_report(report_data)
+        
         report_data['report_path'] = report_path
+        report_data['html_report_path'] = html_report_path
         report_data['scan_results'] = scan_results
         report_data['chat_summary'] = chat_auditor.get_summary()
         report_data['browser_summary'] = browser_analyzer.get_summary()
@@ -149,7 +176,6 @@ def start_audit():
     employee_name = data.get('employee_name', '')
     directory_path = data.get('directory_path', '')
     chat_db_path = data.get('chat_db_path', '')
-    usb_json_path = data.get('usb_json_path', '')
     start_date_str = data.get('start_date', '')
     end_date_str = data.get('end_date', '')
     
@@ -161,9 +187,6 @@ def start_audit():
 
     if chat_db_path and not os.path.exists(chat_db_path):
         return jsonify({'error': '指定的聊天记录样本不存在'}), 400
-
-    if usb_json_path and not os.path.exists(usb_json_path):
-        return jsonify({'error': '指定的USB记录样本不存在'}), 400
     
     try:
         start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
@@ -180,7 +203,7 @@ def start_audit():
         'directory_path': directory_path
     }
     
-    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path, usb_json_path))
+    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path))
     thread.start()
     
     return jsonify({'task_id': task_id})
@@ -208,9 +231,20 @@ def audit_status(task_id):
             'chat_summary': result['chat_summary'],
             'browser_summary': result['browser_summary'],
             'usb_summary': result['usb_summary'],
-            'scan_results': result['scan_results'],
             'report_path': os.path.basename(result['report_path'])
         }
+        
+        scan_results_copy = result['scan_results'].copy()
+        if 'archive_inspection' in scan_results_copy:
+            archive_inspection_copy = []
+            for archive in scan_results_copy['archive_inspection']:
+                a_copy = archive.copy()
+                if 'modify_time' in a_copy and hasattr(a_copy['modify_time'], 'strftime'):
+                    a_copy['modify_time'] = a_copy['modify_time'].strftime('%Y-%m-%d %H:%M:%S')
+                archive_inspection_copy.append(a_copy)
+            scan_results_copy['archive_inspection'] = archive_inspection_copy
+        response['result']['scan_results'] = scan_results_copy
+        
         response['result']['content_findings'] = []
         for f in result.get('content_findings', []):
             f_copy = f.copy()

@@ -2,6 +2,8 @@ import os
 import stat
 import time
 import hashlib
+import zipfile
+import tarfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -18,6 +20,15 @@ class FileScanner:
         self.EXCLUDED_FILE_KEYWORDS = [
             '离职安全审计报告', '审计报告', 'audit_report', 'report_'
         ]
+        self.archive_sensitive_keywords = []
+        self._load_archive_keywords()
+        
+    def _load_archive_keywords(self):
+        keywords_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'keywords')
+        archive_file = os.path.join(keywords_dir, 'archive_sensitive_keywords.txt')
+        if os.path.exists(archive_file):
+            with open(archive_file, 'r', encoding='utf-8') as f:
+                self.archive_sensitive_keywords = [line.strip() for line in f if line.strip()]
         
     def scan_directory(self, directory, audit_start_date, audit_end_date, progress_callback=None):
         self.scan_results = []
@@ -194,3 +205,97 @@ class FileScanner:
             'scan_time': scan_time_str,
             'scan_duration': duration_str
         }
+    
+    def _check_inner_filenames(self, inner_files):
+        sensitive_extensions = (
+            '.xlsx', '.xls', '.docx', '.doc', '.pptx', '.ppt',
+            '.sql', '.mdb', '.accdb', '.pst', '.ost', '.eml', '.msg',
+            '.json', '.csv', '.xml', '.pdf', '.zip', '.rar', '.7z'
+        )
+        
+        sensitive_hits = []
+        for inner_file in inner_files:
+            inner_file_lower = inner_file.lower()
+            inner_ext = os.path.splitext(inner_file)[1].lower()
+            
+            if inner_ext in sensitive_extensions:
+                sensitive_hits.append(inner_file)
+                continue
+            
+            for keyword in self.archive_sensitive_keywords:
+                if keyword.lower() in inner_file_lower:
+                    sensitive_hits.append(inner_file)
+                    break
+        
+        return list(set(sensitive_hits))
+    
+    def _list_zip_contents(self, file_path):
+        try:
+            with zipfile.ZipFile(file_path, 'r') as zf:
+                return zf.namelist()
+        except Exception:
+            return []
+    
+    def _list_tar_contents(self, file_path):
+        try:
+            with tarfile.open(file_path, 'r:*') as tf:
+                return [member.name for member in tf.getmembers() if member.isfile()]
+        except Exception:
+            return []
+    
+    def _list_7z_contents(self, file_path):
+        try:
+            import py7zr
+            with py7zr.SevenZipFile(file_path, 'r') as szf:
+                return [entry.filename for entry in szf.list() if entry.isfile]
+        except ImportError:
+            return []
+        except Exception:
+            return []
+    
+    def _list_rar_contents(self, file_path):
+        try:
+            import rarfile
+            with rarfile.RarFile(file_path, 'r') as rf:
+                return rf.namelist()
+        except ImportError:
+            return []
+        except Exception:
+            return []
+    
+    def inspect_archives(self, progress_callback=None):
+        inspection_results = []
+        archive_files = [f for f in self.scan_results if f['file_type'] == 'archive']
+        
+        for idx, archive in enumerate(archive_files):
+            file_path = archive['file_path']
+            file_ext = archive['file_ext'].lower()
+            inner_files = []
+            
+            if file_ext == '.zip':
+                inner_files = self._list_zip_contents(file_path)
+            elif file_ext in ('.tar', '.gz', '.bz2', '.xz'):
+                inner_files = self._list_tar_contents(file_path)
+            elif file_ext == '.7z':
+                inner_files = self._list_7z_contents(file_path)
+            elif file_ext == '.rar':
+                inner_files = self._list_rar_contents(file_path)
+            
+            sensitive_hits = self._check_inner_filenames(inner_files)
+            
+            inspection_results.append({
+                'archive_path': file_path,
+                'archive_name': archive['file_name'],
+                'archive_size': archive['file_size'],
+                'archive_size_human': archive['file_size_human'],
+                'modify_time': archive['modify_time'],
+                'inner_file_count': len(inner_files),
+                'inner_files': inner_files[:50],
+                'sensitive_inner_hits': sensitive_hits,
+                'sensitive_hit_count': len(sensitive_hits)
+            })
+            
+            if progress_callback and (idx + 1) % 5 == 0:
+                progress_callback(f"检查压缩包: {idx + 1}/{len(archive_files)}")
+        
+        return inspection_results
