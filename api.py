@@ -24,7 +24,7 @@ CORS(app)
 
 audit_tasks = {}
 
-def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path=''):
+def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path='', usb_json_path=''):
     try:
         audit_tasks[task_id]['status'] = 'running'
         audit_tasks[task_id]['progress'] = 5
@@ -66,7 +66,7 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
         audit_tasks[task_id]['message'] = '④ USB设备审计：读取注册表提取U盘插拔记录...'
         time.sleep(1)
         
-        usb_devices, usb_operations = usb_auditor.audit_usb_devices()
+        usb_devices, usb_operations = usb_auditor.audit_usb_devices(mock_json_path=usb_json_path)
         
         audit_tasks[task_id]['progress'] = 75
         audit_tasks[task_id]['message'] = '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...'
@@ -176,24 +176,34 @@ def start_audit():
     employee_name = data.get('employee_name', '')
     directory_path = data.get('directory_path', '')
     chat_db_path = data.get('chat_db_path', '')
+    usb_json_path = data.get('usb_json_path', '')
     start_date_str = data.get('start_date', '')
     end_date_str = data.get('end_date', '')
-    
+
     if not employee_name or not directory_path:
         return jsonify({'error': '请填写员工姓名和目录路径'}), 400
-    
+
     if not os.path.exists(directory_path):
         return jsonify({'error': '指定的目录不存在'}), 400
 
     if chat_db_path and not os.path.exists(chat_db_path):
         return jsonify({'error': '指定的聊天记录样本不存在'}), 400
-    
-    try:
-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
-    except:
-        return jsonify({'error': '日期格式错误'}), 400
-    
+
+    if usb_json_path and not os.path.exists(usb_json_path):
+        return jsonify({'error': '指定的USB记录样本不存在'}), 400
+
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+            if start_date > end_date:
+                return jsonify({'error': '开始日期不能大于结束日期'}), 400
+        except:
+            return jsonify({'error': '日期格式错误'}), 400
+    else:
+        start_date = None
+        end_date = None
+
     task_id = f'task_{int(time.time())}'
     audit_tasks[task_id] = {
         'status': 'pending',
@@ -202,8 +212,8 @@ def start_audit():
         'employee_name': employee_name,
         'directory_path': directory_path
     }
-    
-    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path))
+
+    thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path, usb_json_path))
     thread.start()
     
     return jsonify({'task_id': task_id})
@@ -280,19 +290,5 @@ def download_report(task_id):
     
     return send_file(report_path, as_attachment=True)
 
-@app.route('/api/open-file', methods=['POST'])
-def open_file():
-    data = request.get_json()
-    file_path = data.get('file_path', '')
-    
-    if not file_path or not os.path.exists(file_path):
-        return jsonify({'error': '文件不存在'}), 400
-    
-    try:
-        os.startfile(file_path)
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='127.0.0.1', port=5000)

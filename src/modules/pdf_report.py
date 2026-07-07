@@ -10,6 +10,8 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfbase.cidfonts import UnicodeCIDFont
 
+from utils.common import sanitize_filename
+
 _CHINESE_FONT_REGISTERED = False
 
 def _register_chinese_font():
@@ -148,7 +150,7 @@ class PDFReportGenerator:
     def generate_report(self, audit_data, output_path=None):
         if output_path is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            employee_name = audit_data["employee_name"]
+            employee_name = sanitize_filename(audit_data["employee_name"])
             report_name = f'离职安全审计报告_{employee_name}_{timestamp}.pdf'
             reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports')
             employee_dir = os.path.join(reports_dir, employee_name)
@@ -168,6 +170,7 @@ class PDFReportGenerator:
         self._add_report_info(elements, audit_data)
         self._add_risk_summary(elements, audit_data)
         self._add_findings(elements, audit_data)
+        self._add_timeline(elements, audit_data)
         self._add_evidence_list(elements, audit_data)
         self._add_appendix(elements)
         

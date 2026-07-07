@@ -1,0 +1,46 @@
+[
+    {
+        "event_time": "2026-07-01 09:30:00",
+        "event_type": "insert",
+        "device_name": "SanDisk Cruzer Blade",
+        "serial_number": "USB\\VID_0781&PID_5567\\1234567890",
+        "description": "USB存储设备插入"
+    },
+    {
+        "event_time": "2026-07-01 09:35:00",
+        "event_type": "copy",
+        "device_name": "SanDisk Cruzer Blade",
+        "serial_number": "USB\\VID_0781&PID_5567\\1234567890",
+        "file_count": 120,
+        "description": "复制大量文件到U盘"
+    },
+    {
+        "event_time": "2026-07-01 09:40:00",
+        "event_type": "remove",
+        "device_name": "SanDisk Cruzer Blade",
+        "serial_number": "USB\\VID_0781&PID_5567\\1234567890",
+        "description": "USB存储设备拔出"
+    },
+    {
+        "event_time": "2026-07-03 22:15:00",
+        "event_type": "insert",
+        "device_name": "Toshiba External USB 3.0",
+        "serial_number": "USB\\VID_0930&PID_6545\\ABCDEFGH",
+        "description": "移动硬盘插入"
+    },
+    {
+        "event_time": "2026-07-03 22:18:00",
+        "event_type": "archive_copy",
+        "device_name": "Toshiba External USB 3.0",
+        "serial_number": "USB\\VID_0930&PID_6545\\ABCDEFGH",
+        "file_count": 1,
+        "description": "复制压缩包到移动硬盘"
+    },
+    {
+        "event_time": "2026-07-03 22:25:00",
+        "event_type": "remove",
+        "device_name": "Toshiba External USB 3.0",
+        "serial_number": "USB\\VID_0930&PID_6545\\ABCDEFGH",
+        "description": "移动硬盘拔出"
+    }
+]

@@ -130,8 +130,11 @@ class ChatAuditor:
                     tables.append(row[0])
                 
                 for table in tables:
+                    # 表名白名单校验，防止 SQL 注入
+                    if not isinstance(table, str) or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+                        continue
                     try:
-                        cursor.execute(f"SELECT * FROM {table} LIMIT 100")
+                        cursor.execute(f"SELECT * FROM `{table}` LIMIT 100")
                         columns = [desc[0] for desc in cursor.description]
                         
                         for row in cursor.fetchall():

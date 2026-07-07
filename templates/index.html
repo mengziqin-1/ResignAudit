@@ -906,7 +906,7 @@
                         <td title="${f.file_path}">${f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-'}</td>
                         <td>${f.description || '-'}</td>
                         <td>
-                            ${f.file_path ? '<a href="#" class="evidence-link" onclick="openFile(\'' + f.file_path.replace(/\\/g, '\\\\') + '\')">定位文件</a>' : '-'}
+                            ${f.file_path ? '<span class="evidence-link">' + (f.file_path.length > 50 ? '...' : '') + '</span>' : '-'}
                         </td>
                     `;
                     tbody.appendChild(row);
@@ -1030,23 +1030,6 @@
                 currentTaskId = null;
                 if (statusInterval) clearInterval(statusInterval);
             }
-            
-            window.openFile = function(filePath) {
-                fetch('/api/open-file', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_path: filePath })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('无法打开文件: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
-            };
         });
     </script>
 </body>

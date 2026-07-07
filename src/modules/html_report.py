@@ -2,6 +2,8 @@ import os
 import json
 from datetime import datetime
 
+from utils.common import sanitize_filename
+
 class HTMLReportGenerator:
     def __init__(self):
         self.template_path = os.path.join(
@@ -13,7 +15,7 @@ class HTMLReportGenerator:
     def generate_report(self, audit_data, output_path=None):
         if output_path is None:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            employee_name = audit_data["employee_name"]
+            employee_name = sanitize_filename(audit_data["employee_name"])
             report_name = f'离职安全审计报告_{employee_name}_{timestamp}.html'
             reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports')
             employee_dir = os.path.join(reports_dir, employee_name)
@@ -28,6 +30,8 @@ class HTMLReportGenerator:
             template = f.read()
         
         serialized_data = self._serialize_audit_data(audit_data)
+        # 将 < > 转义为 Unicode 转义，防止用户输入破坏 </script> 标签，避免 XSS
+        serialized_data = serialized_data.replace('<', '\\u003c').replace('>', '\\u003e')
         report_html = template.replace('{{REPORT_DATA_JSON}}', serialized_data)
         
         with open(output_path, 'w', encoding='utf-8') as f:

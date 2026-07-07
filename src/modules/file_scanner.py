@@ -34,7 +34,13 @@ class FileScanner:
         self.scan_results = []
         self.total_files = 0
         self.scan_start_time = datetime.now()
-        
+
+        # 统一日期类型：Web 端传入 datetime，GUI 传入 date
+        if isinstance(audit_start_date, datetime):
+            audit_start_date = audit_start_date.date()
+        if isinstance(audit_end_date, datetime):
+            audit_end_date = audit_end_date.date()
+
         if not os.path.exists(directory):
             raise ValueError(f"目录不存在: {directory}")
         
