@@ -572,12 +572,8 @@
                     <label>聊天记录样本 <span class="hint">可选，例如 test_data/mock_chat.sqlite</span></label>
                     <input type="text" id="chatDbPath" placeholder="请输入聊天记录SQLite样本路径">
                 </div>
-                <div class="form-group">
-                    <label>USB记录样本 <span class="hint">可选，例如 test_data/mock_usb_events.json</span></label>
-                    <input type="text" id="usbJsonPath" placeholder="请输入USB记录JSON样本路径">
-                </div>
             </div>
-            
+
             <div class="form-row">
                 <div class="form-group">
                     <label>审计开始日期 <span class="hint">（筛选修改时间在此之后的文件）</span></label>
@@ -735,10 +731,9 @@
                 const employeeName = document.getElementById('employeeName').value.trim();
                 const directoryPath = document.getElementById('directoryPath').value.trim();
                 const chatDbPath = document.getElementById('chatDbPath').value.trim();
-                const usbJsonPath = document.getElementById('usbJsonPath').value.trim();
                 const startDate = document.getElementById('startDate').value;
                 const endDate = document.getElementById('endDate').value;
-                
+
                 if (!employeeName) {
                     alert('请输入员工姓名');
                     document.getElementById('employeeName').focus();
@@ -772,7 +767,6 @@
                         employee_name: employeeName,
                         directory_path: directoryPath,
                         chat_db_path: chatDbPath,
-                        usb_json_path: usbJsonPath,
                         start_date: startDate,
                         end_date: endDate
                     })
@@ -1021,7 +1015,6 @@
                 document.getElementById('employeeName').value = '';
                 document.getElementById('directoryPath').value = '';
                 document.getElementById('chatDbPath').value = '';
-                document.getElementById('usbJsonPath').value = '';
                 document.getElementById('startDate').value = thirtyDaysAgo;
                 document.getElementById('endDate').value = today;
                 document.getElementById('resultCard').style.display = 'none';
