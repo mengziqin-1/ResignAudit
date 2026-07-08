@@ -114,8 +114,7 @@ class PDFReportGenerator:
             fontSize=9,
             fontName=self.font_name,
             leading=14,
-            alignment=1,
-            fontWeight='bold'
+            alignment=1
         )
         
         self.high_risk_style = ParagraphStyle(
@@ -352,7 +351,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_evidence_list(self, elements, audit_data):
-        elements.append(Paragraph('四、证据清单', self.heading1_style))
+        elements.append(Paragraph('五、证据清单', self.heading1_style))
         
         all_evidence = []
         
@@ -414,7 +413,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_appendix(self, elements):
-        elements.append(Paragraph('五、附录', self.heading1_style))
+        elements.append(Paragraph('六、附录', self.heading1_style))
         
         elements.append(Paragraph('1. 审计规则说明', self.heading2_style))
         rules = [

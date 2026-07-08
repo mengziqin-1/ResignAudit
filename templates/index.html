@@ -539,7 +539,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 离职场景电子数据取证系统</h1>
+            <h1>离职场景电子数据取证系统</h1>
             <p>本地取证辅助、证据分析与风险报告生成</p>
         </div>
         
@@ -550,7 +550,7 @@
             </div>
             
             <div class="info-box">
-                <strong>💡 使用提示：</strong>日期范围用于筛选文件修改时间。Web端主要用于结果展示和接口调试，核心本地取证建议使用 PyQT 客户端。测试时可使用 <code>test_data</code> 作为目录路径。
+                <strong>使用提示：</strong>日期范围用于筛选文件修改时间。Web端主要用于结果展示和接口调试，核心本地取证建议使用 PyQT 客户端。测试时可使用 <code>test_data</code> 作为目录路径。
             </div>
             
             <div class="form-row">
@@ -586,8 +586,8 @@
             </div>
             
             <div class="btn-group">
-                <button class="btn btn-primary" id="startBtn">🚀 开始审计</button>
-                <button class="btn btn-secondary" id="resetBtn">🔄 重置</button>
+                <button class="btn btn-primary" id="startBtn">开始审计</button>
+                <button class="btn btn-secondary" id="resetBtn"> 重置</button>
             </div>
             
             <div class="progress-section" id="progressSection">
@@ -603,7 +603,7 @@
         
         <div class="card" id="resultCard" style="display: none;">
             <div class="card-header">
-                <div class="icon">📊</div>
+                <div class="icon"></div>
                 <h2>审计结果</h2>
             </div>
             
@@ -626,13 +626,13 @@
                 </div>
             </div>
             
-            <button class="btn btn-success" id="downloadReportBtn" style="margin-bottom: 25px;">📄 下载PDF报告</button>
+            <button class="btn btn-success" id="downloadReportBtn" style="margin-bottom: 25px;">下载PDF报告</button>
             
             <div class="tabs">
-                <button class="tab-btn active" data-tab="findings">🔍 审计发现</button>
-                <button class="tab-btn" data-tab="timeline">⏱️ 事件时间线</button>
-                <button class="tab-btn" data-tab="risk">⚠️ 风险评估</button>
-                <button class="tab-btn" data-tab="summary">📈 统计摘要</button>
+                <button class="tab-btn active" data-tab="findings">审计发现</button>
+                <button class="tab-btn" data-tab="timeline">事件时间线</button>
+                <button class="tab-btn" data-tab="risk"> 风险评估</button>
+                <button class="tab-btn" data-tab="summary">统计摘要</button>
             </div>
             
             <div class="tab-content active" id="tab-findings">
@@ -671,16 +671,16 @@
             </div>
             
             <div class="tab-content" id="tab-summary">
-                <h3 style="margin-bottom: 15px; color: #333;">📁 文件扫描统计</h3>
+                <h3 style="margin-bottom: 15px; color: #333;">文件扫描统计</h3>
                 <div id="fileSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">🌐 浏览器行为统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;"> 浏览器行为统计</h3>
                 <div id="browserSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">💾 USB设备统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">USB设备统计</h3>
                 <div id="usbSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">💬 聊天记录统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">聊天记录统计</h3>
                 <div id="chatSummary"></div>
             </div>
         </div>

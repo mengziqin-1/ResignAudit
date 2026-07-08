@@ -3,7 +3,7 @@ import re
 import hashlib
 from datetime import datetime, timedelta
 
-def get_file_hash(file_path, hash_type='md5', chunk_size=8192):
+def get_file_hash(file_path, hash_type='sha256', chunk_size=8192):
     hash_obj = hashlib.new(hash_type)
     with open(file_path, 'rb') as f:
         while chunk := f.read(chunk_size):

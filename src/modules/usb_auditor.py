@@ -367,17 +367,14 @@ class USBAuditor:
                 i = 0
                 while True:
                     try:
-                        value_name = winreg.EnumKey(hkey, i)
-                        try:
-                            value, _ = winreg.QueryValueEx(hkey, value_name)
-                            self.usb_operations.append({
-                                'operation_type': 'HUB_ENUM',
-                                'device_id': value_name,
-                                'device_info': value,
-                                'timestamp': datetime.now()
-                            })
-                        except WindowsError:
-                            pass
+                        # 该键下存放的是值（Count/NextInstance/0/1/...），应枚举值而非子键
+                        value_name, value, _ = winreg.EnumValue(hkey, i)
+                        self.usb_operations.append({
+                            'operation_type': 'HUB_ENUM',
+                            'device_id': value_name,
+                            'device_info': str(value),
+                            'timestamp': datetime.now()
+                        })
                         i += 1
                     except OSError:
                         break

@@ -124,7 +124,7 @@ class FileScanner:
             'file_type': self._classify_file_type(file_ext)
         }
     
-    def _calculate_hash(self, file_path, hash_type='md5', chunk_size=8192):
+    def _calculate_hash(self, file_path, hash_type='sha256', chunk_size=8192):
         hash_obj = hashlib.new(hash_type)
         with open(file_path, 'rb') as f:
             while chunk := f.read(chunk_size):
