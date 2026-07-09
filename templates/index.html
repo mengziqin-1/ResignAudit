@@ -511,6 +511,43 @@
             flex-wrap: wrap;
         }
 
+        .quick-config {
+            display: grid;
+            grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .advanced-toggle {
+            margin: 8px 0 20px;
+            color: var(--primary);
+            background: transparent;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .advanced-panel {
+            display: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .advanced-panel.active {
+            display: block;
+        }
+
+        .field-note {
+            color: #627d98;
+            font-size: 13px;
+            margin-top: -8px;
+            margin-bottom: 16px;
+        }
+
         .workbench-grid {
             display: grid;
             grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
@@ -648,6 +685,10 @@
             .workbench-grid {
                 grid-template-columns: 1fr;
             }
+
+            .quick-config {
+                grid-template-columns: 1fr;
+            }
             
             .card {
                 padding: 25px;
@@ -682,35 +723,42 @@
             </div>
             
             <div class="info-box">
-                <strong>使用提示：</strong>日期范围用于筛选文件修改时间。Web端主要用于结果展示和接口调试，核心本地取证建议使用 PyQT 客户端。测试时可使用 <code>test_data</code> 作为目录路径。
+                <strong>使用提示：</strong>输入取证数据目录后，系统会自动识别文件、压缩包和标准聊天数据库，并生成证据链、评分解释与审计报告。测试时可使用 <code>test_data</code> 作为目录路径。
             </div>
             
-            <div class="form-row">
+            <div class="quick-config">
                 <div class="form-group">
                     <label><span class="required">*</span> 员工姓名</label>
                     <input type="text" id="employeeName" placeholder="请输入被审计员工姓名">
                 </div>
                 <div class="form-group">
-                    <label><span class="required">*</span> 工作目录路径</label>
-                    <input type="text" id="directoryPath" placeholder="请输入本机目录路径，例如 D:\Project_resign\ResignAudit-main\test_data">
+                    <label><span class="required">*</span> 取证数据目录</label>
+                    <input type="text" id="directoryPath" placeholder="请输入本机取证数据目录，例如 D:\Project_resign\ResignAudit\test_data">
                 </div>
             </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>聊天记录样本 <span class="hint">可选，例如 test_data/mock_chat.sqlite</span></label>
-                    <input type="text" id="chatDbPath" placeholder="请输入聊天记录SQLite样本路径">
-                </div>
+            <div class="field-note">
+                系统会在该目录内自动识别文件、压缩包和标准聊天数据库；默认分析完整时间范围。
             </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>审计开始日期 <span class="hint">（筛选修改时间在此之后的文件）</span></label>
-                    <input type="date" id="startDate">
+            <button type="button" class="advanced-toggle" id="advancedToggle">展开高级筛选</button>
+
+            <div class="advanced-panel" id="advancedPanel">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>指定聊天数据库 <span class="hint">可选；留空则自动识别</span></label>
+                        <input type="text" id="chatDbPath" placeholder="例如 test_data/mock_chat.sqlite">
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>审计结束日期 <span class="hint">（筛选修改时间在此之前的文件）</span></label>
-                    <input type="date" id="endDate">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>起始日期 <span class="hint">可选；用于只分析某段时间内修改的文件</span></label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label>结束日期 <span class="hint">可选；留空则不限制</span></label>
+                        <input type="date" id="endDate">
+                    </div>
                 </div>
             </div>
             
@@ -854,12 +902,6 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const localAccessToken = '{{ local_access_token }}';
-            const today = new Date().toISOString().split('T')[0];
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            
-            document.getElementById('startDate').value = thirtyDaysAgo;
-            document.getElementById('endDate').value = today;
-            
             let currentTaskId = null;
             let statusInterval = null;
             
@@ -867,6 +909,7 @@
             document.getElementById('resetBtn').addEventListener('click', resetForm);
             document.getElementById('downloadReportBtn').addEventListener('click', downloadReport);
             document.querySelector('#findingsTable tbody').addEventListener('click', handleEvidenceAction);
+            document.getElementById('advancedToggle').addEventListener('click', toggleAdvancedPanel);
             
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -891,17 +934,17 @@
                 }
                 
                 if (!directoryPath) {
-                    alert('请输入工作目录路径');
+                    alert('请输入取证数据目录');
                     document.getElementById('directoryPath').focus();
                     return;
                 }
                 
-                if (!startDate || !endDate) {
-                    alert('请选择审计日期范围');
+                if ((startDate && !endDate) || (!startDate && endDate)) {
+                    alert('高级筛选中日期需要同时填写起始日期和结束日期，或全部留空');
                     return;
                 }
                 
-                if (new Date(startDate) > new Date(endDate)) {
+                if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
                     alert('开始日期不能晚于结束日期');
                     return;
                 }
@@ -1296,13 +1339,21 @@
                 document.getElementById('employeeName').value = '';
                 document.getElementById('directoryPath').value = '';
                 document.getElementById('chatDbPath').value = '';
-                document.getElementById('startDate').value = thirtyDaysAgo;
-                document.getElementById('endDate').value = today;
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                document.getElementById('advancedPanel').classList.remove('active');
+                document.getElementById('advancedToggle').textContent = '展开高级筛选';
                 document.getElementById('resultCard').style.display = 'none';
                 document.getElementById('progressSection').style.display = 'none';
                 document.getElementById('progressBar').style.width = '0%';
                 currentTaskId = null;
                 if (statusInterval) clearInterval(statusInterval);
+            }
+
+            function toggleAdvancedPanel() {
+                const panel = document.getElementById('advancedPanel');
+                const isOpen = panel.classList.toggle('active');
+                document.getElementById('advancedToggle').textContent = isOpen ? '收起高级筛选' : '展开高级筛选';
             }
 
             function escapeHtml(text) {
