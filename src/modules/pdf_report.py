@@ -167,7 +167,9 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
         
         self._add_report_info(elements, audit_data)
+        self._add_evidence_type_summary(elements, audit_data)
         self._add_risk_summary(elements, audit_data)
+        self._add_evidence_chains(elements, audit_data)
         self._add_findings(elements, audit_data)
         self._add_timeline(elements, audit_data)
         self._add_evidence_list(elements, audit_data)
@@ -210,9 +212,42 @@ class PDFReportGenerator:
         
         elements.append(table)
         elements.append(Spacer(1, 12))
+
+    def _add_evidence_type_summary(self, elements, audit_data):
+        elements.append(Paragraph('二、证据类型说明', self.heading1_style))
+
+        evidence_types = audit_data.get('evidence_type_summary', [])
+        if not evidence_types:
+            elements.append(Paragraph('暂无证据类型统计', self.normal_style))
+            elements.append(Spacer(1, 12))
+            return
+
+        data = [['证据类型', '证明含义', '数量', '证据强度']]
+        for item in evidence_types:
+            data.append([
+                Paragraph(self._safe_text(item.get('type', ''), 60), self.table_cell_style),
+                Paragraph(self._safe_text(item.get('meaning', ''), 260), self.table_cell_style),
+                Paragraph(str(item.get('count', 0)), self.table_cell_style),
+                Paragraph(self._safe_text(item.get('strength', ''), 60), self.table_cell_style)
+            ])
+
+        table = Table(data, colWidths=[105, 265, 45, 85], repeatRows=1)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('FONTNAME', (0, 0), (-1, -1), self.font_name),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 12))
     
     def _add_risk_summary(self, elements, audit_data):
-        elements.append(Paragraph('二、风险评估结果', self.heading1_style))
+        elements.append(Paragraph('三、风险评估结果', self.heading1_style))
         
         risk_level = audit_data.get('risk_level', {})
         score = risk_level.get('score', 0)
@@ -240,8 +275,50 @@ class PDFReportGenerator:
         
         elements.append(Spacer(1, 12))
     
+    def _add_evidence_chains(self, elements, audit_data):
+        elements.append(Paragraph('四、证据链分析', self.heading1_style))
+
+        chains = audit_data.get('evidence_chains', [])
+        if not chains:
+            elements.append(Paragraph('暂无证据链分析结果', self.normal_style))
+            elements.append(Spacer(1, 12))
+            return
+
+        for chain in chains:
+            elements.append(Paragraph(
+                f"{chain.get('title', '证据链')}：完整度 {chain.get('completeness', 0)}%，置信度 {chain.get('confidence', 0)}%",
+                self.heading2_style
+            ))
+            elements.append(Paragraph(self._safe_text(chain.get('summary', ''), 400), self.normal_style))
+
+            data = [['环节', '证据标题', '证据来源', '证据强度', '说明']]
+            for event in chain.get('events', []):
+                data.append([
+                    Paragraph(self._safe_text(event.get('stage_label', ''), 40), self.table_cell_style),
+                    Paragraph(self._safe_text(event.get('title', ''), 80), self.table_cell_style),
+                    Paragraph(self._safe_text(event.get('source', ''), 50), self.table_cell_style),
+                    Paragraph(self._safe_text(event.get('strength', ''), 50), self.table_cell_style),
+                    Paragraph(self._safe_text(event.get('description', ''), 180), self.table_cell_style)
+                ])
+
+            table = Table(data, colWidths=[65, 110, 80, 70, 190], repeatRows=1)
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+                ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                ('FONTNAME', (0, 0), (-1, -1), self.font_name),
+                ('FONTSIZE', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+                ('TOPPADDING', (0, 0), (-1, -1), 4),
+                ('GRID', (0, 0), (-1, -1), 0.3, colors.grey)
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 10))
+
+        elements.append(Spacer(1, 12))
+
     def _add_findings(self, elements, audit_data):
-        elements.append(Paragraph('三、详细审计发现', self.heading1_style))
+        elements.append(Paragraph('五、详细审计发现', self.heading1_style))
         
         finding_types = {
             'sensitive_keyword': '敏感关键词',
@@ -259,7 +336,7 @@ class PDFReportGenerator:
             if type_findings:
                 elements.append(Paragraph(f'{type_name}（共{len(type_findings)}条）', self.heading2_style))
                 
-                data = [['序号', '内容', '修改时间', '发现内容']]
+                data = [['序号', '内容', '修改时间', '证据强度', '发现内容']]
                 for idx, finding in enumerate(type_findings, 1):
                     modify_time_val = finding.get('modify_time', '')
                     modify_time_str = modify_time_val.strftime('%Y-%m-%d %H:%M') if hasattr(modify_time_val, 'strftime') else ''
@@ -272,10 +349,11 @@ class PDFReportGenerator:
                         Paragraph(str(idx), self.table_cell_style),
                         Paragraph(self._safe_text(display_name, 150), self.table_cell_style),
                         Paragraph(modify_time_str, self.table_cell_style),
+                        Paragraph(self._safe_text(finding.get('evidence_strength', '推测线索'), 40), self.table_cell_style),
                         Paragraph(self._safe_text(finding.get('description', ''), 240), self.table_cell_style)
                     ])
                 
-                table = Table(data, colWidths=[40, 220, 120, 170], repeatRows=1)
+                table = Table(data, colWidths=[35, 190, 105, 75, 145], repeatRows=1)
                 table.setStyle(TableStyle([
                     ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
                     ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
@@ -293,7 +371,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_timeline(self, elements, audit_data):
-        elements.append(Paragraph('四、事件时间线', self.heading1_style))
+        elements.append(Paragraph('六、事件时间线', self.heading1_style))
         
         timeline = audit_data.get('timeline', [])
         if timeline:
@@ -351,7 +429,7 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_evidence_list(self, elements, audit_data):
-        elements.append(Paragraph('五、证据清单', self.heading1_style))
+        elements.append(Paragraph('七、证据清单', self.heading1_style))
         
         all_evidence = []
         
@@ -413,16 +491,16 @@ class PDFReportGenerator:
         elements.append(Spacer(1, 12))
     
     def _add_appendix(self, elements):
-        elements.append(Paragraph('六、附录', self.heading1_style))
+        elements.append(Paragraph('八、附录', self.heading1_style))
         
         elements.append(Paragraph('1. 审计规则说明', self.heading2_style))
         rules = [
-            ('R000', '敏感内容命中', '指定目录中发现敏感内容证据，单类证据封顶', 20),
+            ('R000', '敏感内容命中', '按关键词分级权重折算，区分高危资产、行为词、通道词和弱线索', 20),
             ('R001', '非工作时间密集文件操作', '审计时间范围内夜间文件操作较多', 30),
-            ('R002', 'U盘异常使用', '近期存在USB插拔或大量复制样本记录', 25),
-            ('R003', '聊天记录泄露', '聊天样本中发现泄露相关关键词', 40),
+            ('R002', 'USB设备使用痕迹', '近期存在USB插拔或明确的疑似文件操作记录', 25),
+            ('R003', '聊天记录泄露', '聊天样本中发现泄露相关表达，按意图证据加权', 60),
             ('R004', '访问网盘/邮箱', '浏览器记录中出现云存储或邮箱访问', 20),
-            ('R005', '大量文件打包', '指定目录中发现压缩包证据', 15),
+            ('R005', '大量文件打包', '指定目录中发现压缩包或压缩包内含敏感文件名', 30),
             ('R006', '多源证据组合风险', '敏感文件、USB、压缩包、网盘/邮箱、聊天等多类证据组合出现', 25)
         ]
         

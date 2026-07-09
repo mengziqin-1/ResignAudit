@@ -2,18 +2,53 @@ import os
 import sys
 import time
 import threading
+import secrets
+import uuid
+import subprocess
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template, send_file
-from flask_cors import CORS
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
 from modules.audit_orchestrator import AuditOrchestrator
 
 app = Flask(__name__)
-CORS(app)
+LOCAL_ACCESS_TOKEN = os.environ.get('RESIGNAUDIT_TOKEN') or secrets.token_urlsafe(24)
 
 audit_tasks = {}
+
+def _is_authorized_request():
+    token = request.headers.get('X-Local-Token') or request.args.get('token')
+    return token == LOCAL_ACCESS_TOKEN
+
+def _require_local_token():
+    if not _is_authorized_request():
+        return jsonify({'error': '本地访问令牌无效，请从系统首页重新打开'}), 403
+    return None
+
+def _collect_allowed_evidence_paths(result):
+    allowed = set()
+
+    for file_info in result.get('file_scan_results', []):
+        path = file_info.get('file_path')
+        if path:
+            allowed.add(os.path.abspath(path))
+
+    for finding in result.get('content_findings', []):
+        path = finding.get('file_path')
+        if path and not path.startswith(('http://', 'https://')):
+            allowed.add(os.path.abspath(path))
+
+    return allowed
+
+def _json_safe(value):
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    return value
 
 def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path=''):
     """线程目标函数：调用 AuditOrchestrator 执行审计，实时更新任务状态。"""
@@ -53,10 +88,14 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', local_access_token=LOCAL_ACCESS_TOKEN)
 
 @app.route('/api/start-audit', methods=['POST'])
 def start_audit():
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     data = request.get_json()
     
     employee_name = data.get('employee_name', '')
@@ -86,7 +125,7 @@ def start_audit():
         start_date = None
         end_date = None
 
-    task_id = f'task_{int(time.time())}'
+    task_id = f'task_{int(time.time())}_{uuid.uuid4().hex[:8]}'
     audit_tasks[task_id] = {
         'status': 'pending',
         'progress': 0,
@@ -102,6 +141,10 @@ def start_audit():
 
 @app.route('/api/audit-status/<task_id>', methods=['GET'])
 def audit_status(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     if task_id not in audit_tasks:
         return jsonify({'error': '任务不存在'}), 404
     
@@ -123,6 +166,10 @@ def audit_status(task_id):
             'chat_summary': result['chat_summary'],
             'browser_summary': result['browser_summary'],
             'usb_summary': result['usb_summary'],
+            'evidence_type_summary': result.get('evidence_type_summary', []),
+            'evidence_events': _json_safe(result.get('evidence_events', [])),
+            'evidence_chains': _json_safe(result.get('evidence_chains', [])),
+            'scoring_breakdown': _json_safe(result.get('scoring_breakdown', [])),
             'report_path': os.path.basename(result['report_path'])
         }
         
@@ -157,6 +204,10 @@ def audit_status(task_id):
 
 @app.route('/api/download-report/<task_id>', methods=['GET'])
 def download_report(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     if task_id not in audit_tasks:
         return jsonify({'error': '任务不存在'}), 404
     
@@ -171,6 +222,42 @@ def download_report(task_id):
         return jsonify({'error': '报告文件不存在'}), 404
     
     return send_file(report_path, as_attachment=True)
+
+@app.route('/api/reveal-path/<task_id>', methods=['POST'])
+def reveal_path(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
+    if task_id not in audit_tasks:
+        return jsonify({'error': '任务不存在'}), 404
+
+    task = audit_tasks[task_id]
+    if task['status'] != 'completed':
+        return jsonify({'error': '审计尚未完成，不能定位证据路径'}), 400
+
+    data = request.get_json() or {}
+    requested_path = data.get('file_path', '')
+    if not requested_path or requested_path.startswith(('http://', 'https://')):
+        return jsonify({'error': '不是可定位的本地文件路径'}), 400
+
+    abs_path = os.path.abspath(requested_path)
+    allowed_paths = _collect_allowed_evidence_paths(task['result'])
+    if abs_path not in allowed_paths:
+        return jsonify({'error': '该路径不属于当前审计任务的证据清单'}), 403
+
+    if not os.path.exists(abs_path):
+        return jsonify({'error': '文件不存在或已被移动'}), 404
+
+    try:
+        if os.path.isdir(abs_path):
+            subprocess.Popen(['explorer', abs_path])
+        else:
+            subprocess.Popen(['explorer', '/select,', abs_path])
+    except Exception as exc:
+        return jsonify({'error': f'无法打开所在文件夹: {exc}'}), 500
+
+    return jsonify({'ok': True})
 
 if __name__ == '__main__':
     app.run(debug=False, host='127.0.0.1', port=5000)

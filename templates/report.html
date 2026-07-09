@@ -91,6 +91,15 @@
         .timeline-col.type-browser { background: #fff3e0; color: #e65100; }
         .timeline-col.type-chat { background: #f3e5f5; color: #7b1fa2; }
         .timeline-col.description { flex: 1; font-size: 13px; word-break: break-all; line-height: 1.5; }
+
+        .chain-card { border: 1px solid #e9ecef; border-radius: 8px; padding: 18px; margin-bottom: 16px; background: #fff; }
+        .chain-title { font-size: 17px; font-weight: 600; color: #2a5298; margin-bottom: 6px; }
+        .chain-summary { font-size: 13px; color: #666; margin-bottom: 12px; }
+        .chain-stage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+        .chain-stage { border-left: 4px solid #2a5298; background: #f8f9fa; padding: 12px; border-radius: 4px; }
+        .chain-stage-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+        .chain-stage-title { font-weight: 600; margin-bottom: 4px; }
+        .chain-stage-desc { font-size: 12px; color: #666; line-height: 1.5; }
         
         .type-filter { display: flex; gap: 8px; flex-wrap: wrap; }
         .type-tag { padding: 4px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 1px solid #ddd; transition: all 0.2s; }
@@ -127,6 +136,7 @@
         <div class="report-nav">
             <ul>
                 <li class="active" onclick="showSection('summary')">报告概览</li>
+                <li onclick="showSection('chain')">证据链</li>
                 <li onclick="showSection('findings')">审计发现</li>
                 <li onclick="showSection('timeline')">事件时间线</li>
                 <li onclick="showSection('evidence')">证据清单</li>
@@ -152,8 +162,45 @@
                     </div>
                     <div class="findings-list" id="findings-summary"></div>
                 </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">证据类型说明</div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>证据类型</th><th>证明含义</th><th>数量</th><th>证据强度</th></tr>
+                            </thead>
+                            <tbody id="evidence-type-body"></tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
-            
+
+            <div id="chain" class="section">
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">证据链分析</div>
+                    </div>
+                    <div id="chain-report-container"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">评分解释</div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>规则/链路</th><th>名称</th><th>分数</th><th>依据</th><th>说明</th></tr>
+                            </thead>
+                            <tbody id="score-breakdown-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+             
             <div id="findings" class="section">
                 <div class="card">
                     <div class="card-header">
@@ -271,6 +318,7 @@
             filteredTimeline = [...timelineData];
             
             renderSummary();
+            renderChains();
             renderFindings();
             renderEvidence();
             initTimeline();
@@ -339,6 +387,52 @@
             }).join('');
             
             document.getElementById('findings-summary').innerHTML = summaryHtml || '<div style="text-align: center; color: #999;">暂无风险发现</div>';
+
+            var evidenceTypeBody = document.getElementById('evidence-type-body');
+            var evidenceTypes = data.evidence_type_summary || [];
+            evidenceTypeBody.innerHTML = evidenceTypes.map(item => `
+                <tr>
+                    <td>${escapeHtml(item.type || '')}</td>
+                    <td>${escapeHtml(item.meaning || '')}</td>
+                    <td>${item.count || 0}</td>
+                    <td>${escapeHtml(item.strength || '')}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="4" style="text-align: center; color: #999;">暂无证据类型统计</td></tr>';
+        }
+
+        function renderChains() {
+            var chains = REPORT_DATA.evidence_chains || [];
+            var container = document.getElementById('chain-report-container');
+            var scoreBody = document.getElementById('score-breakdown-body');
+
+            container.innerHTML = chains.map(chain => {
+                var stages = (chain.events || []).map(event => `
+                    <div class="chain-stage">
+                        <div class="chain-stage-label">${escapeHtml(event.stage_label || '')}</div>
+                        <div class="chain-stage-title">${escapeHtml(event.title || '-')}</div>
+                        <div class="chain-stage-desc">${escapeHtml(event.description || '-')}</div>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="chain-card">
+                        <div class="chain-title">${escapeHtml(chain.title || '证据链')} · 完整度 ${chain.completeness || 0}% · 置信度 ${chain.confidence || 0}%</div>
+                        <div class="chain-summary">${escapeHtml(chain.summary || '')}</div>
+                        <div class="chain-stage-grid">${stages}</div>
+                    </div>
+                `;
+            }).join('') || '<div style="text-align: center; color: #999;">暂无证据链</div>';
+
+            var breakdown = REPORT_DATA.scoring_breakdown || [];
+            scoreBody.innerHTML = breakdown.map(item => `
+                <tr>
+                    <td>${escapeHtml(item.rule_id || '-')}</td>
+                    <td>${escapeHtml(item.name || '-')}</td>
+                    <td>${item.score || 0}</td>
+                    <td>${escapeHtml(item.basis || '-')}</td>
+                    <td>${escapeHtml(item.description || '-')}</td>
+                </tr>
+            `).join('') || '<tr><td colspan="5" style="text-align: center; color: #999;">暂无评分解释</td></tr>';
         }
         
         function renderFindings() {
@@ -370,14 +464,14 @@
         var tableHtml = `
             <table class="data-table">
                 <thead>
-                    <tr><th class="col-index">序号</th><th class="col-file-name">文件路径</th><th class="col-time">修改时间</th><th class="col-desc">发现内容</th></tr>
+                    <tr><th class="col-index">序号</th><th class="col-file-name">文件路径</th><th class="col-time">修改时间</th><th>证据强度</th><th class="col-desc">发现内容</th></tr>
                 </thead>
                 <tbody>
         `;
         
         if (displayedFindings.length === 0) {
             tableHtml += `
-                <tr><td colspan="4" style="text-align: center; color: #999; padding: 40px;">暂无该类型审计发现</td></tr>
+                <tr><td colspan="5" style="text-align: center; color: #999; padding: 40px;">暂无该类型审计发现</td></tr>
             `;
         } else {
             displayedFindings.forEach((f, i) => {
@@ -395,6 +489,7 @@
                         <td class="col-index">${i+1}</td>
                         <td class="col-file-name">${escapeHtml(displayName || '')}</td>
                         <td class="col-time">${formatTime(f.modify_time)}</td>
+                        <td>${escapeHtml(f.evidence_strength || '推测线索')}</td>
                         <td class="col-desc">${escapeHtml(f.description || '')}</td>
                     </tr>
                 `;
