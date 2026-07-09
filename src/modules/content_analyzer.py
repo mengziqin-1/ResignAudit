@@ -3,6 +3,8 @@ import re
 import pandas as pd
 from datetime import datetime
 
+from modules.keyword_policy import score_keywords
+
 class ContentAnalyzer:
     def __init__(self):
         self.sensitive_keywords = []
@@ -183,17 +185,22 @@ class ContentAnalyzer:
         found_ips = re.findall(ip_pattern, text)
         
         if matched_sensitive:
+            keyword_meta = score_keywords(matched_sensitive)
             findings.append({
                 'type': 'sensitive_keyword',
                 'file_path': file_info['file_path'],
                 'file_name': file_info['file_name'],
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': matched_sensitive,
-                'severity': 'high',
-                'description': f"发现敏感关键词: {', '.join(matched_sensitive[:5])}"
+                'severity': 'high' if keyword_meta['keyword_score'] >= 10 else 'medium',
+                'evidence_strength': keyword_meta['evidence_strength'],
+                'keyword_score': keyword_meta['keyword_score'],
+                'keyword_categories': keyword_meta['keyword_categories'],
+                'description': f"发现敏感关键词: {', '.join(matched_sensitive[:5])}（证据强度：{keyword_meta['evidence_strength']}）"
             })
         
         if matched_cloud:
+            keyword_meta = score_keywords(matched_cloud)
             findings.append({
                 'type': 'cloud_storage',
                 'file_path': file_info['file_path'],
@@ -201,10 +208,14 @@ class ContentAnalyzer:
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': matched_cloud,
                 'severity': 'medium',
-                'description': f"发现云存储相关内容: {', '.join(matched_cloud[:5])}"
+                'evidence_strength': '环境记录',
+                'keyword_score': keyword_meta['keyword_score'],
+                'keyword_categories': keyword_meta['keyword_categories'],
+                'description': f"发现云存储相关内容: {', '.join(matched_cloud[:5])}（证据强度：环境记录）"
             })
         
         if matched_email:
+            keyword_meta = score_keywords(matched_email)
             findings.append({
                 'type': 'email',
                 'file_path': file_info['file_path'],
@@ -212,7 +223,10 @@ class ContentAnalyzer:
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': matched_email,
                 'severity': 'medium',
-                'description': f"发现邮箱相关内容: {', '.join(matched_email[:5])}"
+                'evidence_strength': '环境记录',
+                'keyword_score': keyword_meta['keyword_score'],
+                'keyword_categories': keyword_meta['keyword_categories'],
+                'description': f"发现邮箱相关内容: {', '.join(matched_email[:5])}（证据强度：环境记录）"
             })
         
         if found_emails:
@@ -223,7 +237,10 @@ class ContentAnalyzer:
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': found_emails[:10],
                 'severity': 'medium',
-                'description': f"发现邮箱地址: {', '.join(found_emails[:5])}"
+                'evidence_strength': '环境记录',
+                'keyword_score': 3,
+                'keyword_categories': {'transfer_channel': 1},
+                'description': f"发现邮箱地址: {', '.join(found_emails[:5])}（证据强度：环境记录）"
             })
         
         if found_phones:
@@ -234,7 +251,10 @@ class ContentAnalyzer:
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': found_phones[:10],
                 'severity': 'low',
-                'description': f"发现手机号码: {', '.join(found_phones[:5])}"
+                'evidence_strength': '弱线索',
+                'keyword_score': 1,
+                'keyword_categories': {'low_signal': 1},
+                'description': f"发现手机号码: {', '.join(found_phones[:5])}（证据强度：弱线索）"
             })
         
         if found_ips:
@@ -245,7 +265,10 @@ class ContentAnalyzer:
                 'modify_time': file_info['modify_time'],
                 'matched_keywords': found_ips[:10],
                 'severity': 'low',
-                'description': f"发现IP地址: {', '.join(found_ips[:5])}"
+                'evidence_strength': '弱线索',
+                'keyword_score': 1,
+                'keyword_categories': {'low_signal': 1},
+                'description': f"发现IP地址: {', '.join(found_ips[:5])}（证据强度：弱线索）"
             })
         
         return findings

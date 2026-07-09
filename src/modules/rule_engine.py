@@ -66,18 +66,18 @@ class RuleEngine:
         finding = None
 
         sensitive_findings = scan_results.get('content_sensitive_findings', 0)
+        keyword_score = scan_results.get('content_keyword_score', 0)
         if sensitive_findings > 0:
-            # 渐进评分: 每个命中 +5 分，基础 0 分，上限 20
-            score = min(20, sensitive_findings * 5)
-            # 1→5, 2→10, 3→15, 4→20
+            # 关键词已按高危资产、行为词、通道词、弱线索做过加权
+            score = min(20, max(3, int(keyword_score * 0.35)))
             finding = {
                 'rule_id': 'R000',
                 'rule_name': '敏感内容命中',
                 'severity': 'high' if score >= 15 else 'medium',
                 'score': score,
                 'description': (
-                    f"指定目录中发现 {sensitive_findings} 个敏感内容证据，"
-                    f"评分随命中数递增（上限20分）"
+                    f"指定目录中发现 {sensitive_findings} 类敏感内容证据，"
+                    f"关键词加权分 {keyword_score}，按权重折算风险分（上限20分）"
                 ),
                 'evidence_count': sensitive_findings
             }
@@ -133,7 +133,7 @@ class RuleEngine:
         # 文件复制: 每10次 +1 分，上限 8
         if usb_file_copies > 0:
             sub_score += min(8, int(usb_file_copies * 0.1))
-            reasons.append(f"{usb_file_copies}次文件复制")
+            reasons.append(f"{usb_file_copies}条疑似文件操作记录")
 
         # 短时间密集插入: 每次 +2 分，上限 7
         if short_time_insertions > 0:
@@ -146,10 +146,10 @@ class RuleEngine:
             description = f"U盘异常使用：{', '.join(reasons)}，存在数据外传风险"
             finding = {
                 'rule_id': 'R002',
-                'rule_name': 'U盘异常使用',
+                'rule_name': 'USB设备使用痕迹',
                 'severity': severity,
                 'score': score,
-                'description': description,
+                'description': description.replace('U盘异常使用', 'USB设备使用痕迹'),
                 'evidence_count': usb_insertions + usb_file_copies + short_time_insertions
             }
 
@@ -164,11 +164,10 @@ class RuleEngine:
         finding = None
 
         chat_leak_keywords = scan_results.get('chat_leak_keywords_found', 0)
+        chat_keyword_score = scan_results.get('chat_leak_keyword_score', 0)
         if chat_leak_keywords > 0:
-            # 渐进评分: 基础 10 分 + 每个关键词 12 分，上限 60
-            # 1→22, 2→34, 3→46, 4→58, 5+→60
-            # P0-5: max=60 使 severity='critical' 时总分管入高风险(>=60)
-            score = min(60, 10 + chat_leak_keywords * 12)
+            # 聊天内容更接近主观意图，因此权重高于普通文档命中
+            score = min(60, 10 + int(chat_keyword_score * 0.8))
             # severity 随分数递增: 低分→high，高分→critical
             severity = 'critical' if score >= 46 else 'high'
             finding = {
@@ -177,8 +176,8 @@ class RuleEngine:
                 'severity': severity,
                 'score': score,
                 'description': (
-                    f"聊天记录中发现数据泄露意图（{chat_leak_keywords}个关键词），"
-                    f"评分随关键词数递增（上限60分）"
+                    f"聊天记录中发现数据泄露相关表达（{chat_leak_keywords}个关键词），"
+                    f"关键词加权分 {chat_keyword_score}，按意图证据折算风险分（上限60分）"
                 ),
                 'evidence_count': chat_leak_keywords
             }
@@ -347,7 +346,7 @@ class RuleEngine:
         return [
             {'rule_id': 'R000', 'name': '敏感内容命中', 'max_score': 20, 'severity': 'medium'},
             {'rule_id': 'R001', 'name': '非工作时间密集文件操作', 'max_score': 30, 'severity': 'high'},
-            {'rule_id': 'R002', 'name': 'U盘异常使用', 'max_score': 25, 'severity': 'high'},
+            {'rule_id': 'R002', 'name': 'USB设备使用痕迹', 'max_score': 25, 'severity': 'high'},
             {'rule_id': 'R003', 'name': '聊天记录泄露', 'max_score': 60, 'severity': 'critical'},
             {'rule_id': 'R004', 'name': '访问网盘/邮箱', 'max_score': 20, 'severity': 'medium'},
             {'rule_id': 'R005', 'name': '大量文件打包', 'max_score': 30, 'severity': 'high'},

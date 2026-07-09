@@ -450,6 +450,8 @@ class USBAuditor:
     def get_usb_file_copies(self):
         total = 0
         for operation in self.usb_operations:
+            if operation.get('operation_type') not in ('copy', 'write', 'archive_copy'):
+                continue
             total += int(operation.get('file_count', 1) or 1)
         return total
     

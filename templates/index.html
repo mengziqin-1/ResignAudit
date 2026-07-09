@@ -8,18 +8,21 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         :root {
-            --primary: #667eea;
-            --primary-dark: #764ba2;
+            --primary: #1f4e79;
+            --primary-dark: #163b5c;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #3b82f6;
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --info: #2563eb;
+            --bg-gradient: linear-gradient(135deg, #1f4e79 0%, #163b5c 100%);
+            --surface: #ffffff;
+            --page: #f3f6f9;
+            --border: #d9e2ec;
         }
         
         body {
             font-family: 'Microsoft YaHei', 'PingFang SC', 'SimHei', sans-serif;
-            background: var(--bg-gradient);
+            background: var(--page);
             min-height: 100vh;
             padding: 20px;
             line-height: 1.6;
@@ -31,31 +34,31 @@
         }
         
         .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
+            text-align: left;
+            color: #102a43;
+            margin-bottom: 18px;
             animation: fadeInDown 0.6s ease;
         }
         
         .header h1 {
-            font-size: 42px;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 28px;
+            margin-bottom: 4px;
             font-weight: 700;
         }
         
         .header p {
-            font-size: 18px;
-            opacity: 0.9;
-            letter-spacing: 2px;
+            font-size: 14px;
+            color: #52606d;
+            letter-spacing: 0;
         }
         
         .card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            padding: 40px;
-            margin-bottom: 25px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+            padding: 28px;
+            margin-bottom: 18px;
             animation: fadeInUp 0.6s ease;
         }
         
@@ -69,10 +72,10 @@
         }
         
         .card-header .icon {
-            width: 45px;
-            height: 45px;
+            width: 38px;
+            height: 38px;
             background: var(--bg-gradient);
-            border-radius: 12px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -125,7 +128,7 @@
             width: 100%;
             padding: 15px 20px;
             border: 2px solid #e0e0e0;
-            border-radius: 12px;
+            border-radius: 6px;
             font-size: 15px;
             transition: all 0.3s;
             background: #fafafa;
@@ -152,7 +155,7 @@
         .btn {
             padding: 12px 24px;
             border: none;
-            border-radius: 10px;
+            border-radius: 6px;
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
@@ -222,7 +225,7 @@
             display: none;
             padding: 25px;
             background: #f8fafc;
-            border-radius: 15px;
+            border-radius: 8px;
             animation: fadeIn 0.3s ease;
         }
         
@@ -337,7 +340,7 @@
             border-collapse: collapse;
             margin-top: 10px;
             background: #fafafa;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
         }
         
@@ -391,9 +394,9 @@
         }
         
         .summary-card {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f8fafc;
             padding: 25px;
-            border-radius: 15px;
+            border-radius: 8px;
             text-align: center;
             transition: transform 0.3s, box-shadow 0.3s;
             border-left: 4px solid var(--primary);
@@ -507,6 +510,168 @@
             gap: 15px;
             flex-wrap: wrap;
         }
+
+        .quick-config {
+            display: grid;
+            grid-template-columns: minmax(260px, 0.8fr) minmax(360px, 1.2fr);
+            gap: 18px;
+            margin-bottom: 20px;
+        }
+
+        .advanced-toggle {
+            margin: 8px 0 20px;
+            color: var(--primary);
+            background: transparent;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .advanced-panel {
+            display: none;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #f8fafc;
+            padding: 18px;
+            margin-bottom: 20px;
+        }
+
+        .advanced-panel.active {
+            display: block;
+        }
+
+        .field-note {
+            color: #627d98;
+            font-size: 13px;
+            margin-top: -8px;
+            margin-bottom: 16px;
+        }
+
+        .workbench-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .chain-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px;
+            background: #fff;
+            margin-bottom: 14px;
+        }
+
+        .chain-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .chain-title {
+            font-weight: 700;
+            color: #102a43;
+            font-size: 16px;
+        }
+
+        .chain-summary {
+            color: #52606d;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .chain-meter {
+            min-width: 130px;
+            text-align: right;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .chain-stages {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .stage-item {
+            border: 1px solid #dbe4ee;
+            border-left: 4px solid var(--primary);
+            border-radius: 6px;
+            padding: 12px;
+            background: #f8fafc;
+            min-height: 100px;
+        }
+
+        .stage-label {
+            font-size: 12px;
+            color: #52606d;
+            margin-bottom: 6px;
+        }
+
+        .stage-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #102a43;
+            margin-bottom: 6px;
+        }
+
+        .stage-desc {
+            font-size: 12px;
+            color: #627d98;
+            line-height: 1.45;
+        }
+
+        .side-panel {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            padding: 16px;
+        }
+
+        .side-panel h3 {
+            font-size: 15px;
+            color: #102a43;
+            margin-bottom: 12px;
+        }
+
+        .score-row {
+            display: grid;
+            grid-template-columns: 70px 1fr 54px;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf2f7;
+            align-items: start;
+            font-size: 13px;
+        }
+
+        .score-row:last-child {
+            border-bottom: none;
+        }
+
+        .score-id {
+            color: #52606d;
+            font-family: Consolas, monospace;
+        }
+
+        .score-name {
+            font-weight: 700;
+            color: #102a43;
+        }
+
+        .score-desc {
+            color: #627d98;
+            margin-top: 3px;
+            line-height: 1.45;
+        }
+
+        .score-value {
+            text-align: right;
+            font-weight: 700;
+            color: var(--primary);
+        }
         
         @media (max-width: 768px) {
             .form-row {
@@ -515,6 +680,14 @@
             
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .workbench-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-config {
+                grid-template-columns: 1fr;
             }
             
             .card {
@@ -545,43 +718,47 @@
         
         <div class="card">
             <div class="card-header">
-                <div class="icon">⚙️</div>
+                <div class="icon">审</div>
                 <h2>审计参数配置</h2>
             </div>
             
             <div class="info-box">
-                <strong>使用提示：</strong>日期范围用于筛选文件修改时间。Web端主要用于结果展示和接口调试，核心本地取证建议使用 PyQT 客户端。测试时可使用 <code>test_data</code> 作为目录路径。
+                <strong>使用提示：</strong>输入取证数据目录后，系统会自动识别文件、压缩包和标准聊天数据库，并生成证据链、评分解释与审计报告。测试时可使用 <code>test_data</code> 作为目录路径。
             </div>
             
-            <div class="form-row">
+            <div class="quick-config">
                 <div class="form-group">
                     <label><span class="required">*</span> 员工姓名</label>
                     <input type="text" id="employeeName" placeholder="请输入被审计员工姓名">
                 </div>
                 <div class="form-group">
-                    <label><span class="required">*</span> 工作目录路径</label>
-                    <div class="input-group">
-                        <input type="text" id="directoryPath" placeholder="请输入要扫描的目录路径">
-                        <button class="btn btn-icon" id="browseBtn" title="选择目录">📁</button>
+                    <label><span class="required">*</span> 取证数据目录</label>
+                    <input type="text" id="directoryPath" placeholder="请输入本机取证数据目录，例如 D:\Project_resign\ResignAudit\test_data">
+                </div>
+            </div>
+            <div class="field-note">
+                系统会在该目录内自动识别文件、压缩包和标准聊天数据库；默认分析完整时间范围。
+            </div>
+
+            <button type="button" class="advanced-toggle" id="advancedToggle">展开高级筛选</button>
+
+            <div class="advanced-panel" id="advancedPanel">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>指定聊天数据库 <span class="hint">可选；留空则自动识别</span></label>
+                        <input type="text" id="chatDbPath" placeholder="例如 test_data/mock_chat.sqlite">
                     </div>
                 </div>
-            </div>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>聊天记录样本 <span class="hint">可选，例如 test_data/mock_chat.sqlite</span></label>
-                    <input type="text" id="chatDbPath" placeholder="请输入聊天记录SQLite样本路径">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
-                    <label>审计开始日期 <span class="hint">（筛选修改时间在此之后的文件）</span></label>
-                    <input type="date" id="startDate">
-                </div>
-                <div class="form-group">
-                    <label>审计结束日期 <span class="hint">（筛选修改时间在此之前的文件）</span></label>
-                    <input type="date" id="endDate">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>起始日期 <span class="hint">可选；用于只分析某段时间内修改的文件</span></label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div class="form-group">
+                        <label>结束日期 <span class="hint">可选；留空则不限制</span></label>
+                        <input type="date" id="endDate">
+                    </div>
                 </div>
             </div>
             
@@ -603,7 +780,7 @@
         
         <div class="card" id="resultCard" style="display: none;">
             <div class="card-header">
-                <div class="icon"></div>
+                <div class="icon">报</div>
                 <h2>审计结果</h2>
             </div>
             
@@ -624,18 +801,54 @@
                     <div class="risk-level" id="riskLevelBadge">无风险</div>
                     <div class="label">风险等级</div>
                 </div>
+                <div class="summary-card">
+                    <div class="number" id="evidenceEventsCount">0</div>
+                    <div class="label">证据事件数</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="chainCompleteness">0%</div>
+                    <div class="label">链路完整度</div>
+                </div>
             </div>
             
             <button class="btn btn-success" id="downloadReportBtn" style="margin-bottom: 25px;">下载PDF报告</button>
             
             <div class="tabs">
-                <button class="tab-btn active" data-tab="findings">审计发现</button>
+                <button class="tab-btn active" data-tab="chain">证据链</button>
+                <button class="tab-btn" data-tab="events">证据事件</button>
+                <button class="tab-btn" data-tab="findings">审计发现</button>
                 <button class="tab-btn" data-tab="timeline">事件时间线</button>
                 <button class="tab-btn" data-tab="risk"> 风险评估</button>
                 <button class="tab-btn" data-tab="summary">统计摘要</button>
             </div>
+
+            <div class="tab-content active" id="tab-chain">
+                <div class="workbench-grid">
+                    <div id="chainContainer"></div>
+                    <div class="side-panel">
+                        <h3>评分解释</h3>
+                        <div id="scoreBreakdown"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-events">
+                <table id="eventsTable">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>证据阶段</th>
+                            <th>来源</th>
+                            <th>证据标题</th>
+                            <th>强度</th>
+                            <th>置信度</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
             
-            <div class="tab-content active" id="tab-findings">
+            <div class="tab-content" id="tab-findings">
                 <table id="findingsTable">
                     <thead>
                         <tr>
@@ -688,19 +901,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const today = new Date().toISOString().split('T')[0];
-            const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-            
-            document.getElementById('startDate').value = thirtyDaysAgo;
-            document.getElementById('endDate').value = today;
-            
+            const localAccessToken = '{{ local_access_token }}';
             let currentTaskId = null;
             let statusInterval = null;
             
             document.getElementById('startBtn').addEventListener('click', startAudit);
             document.getElementById('resetBtn').addEventListener('click', resetForm);
             document.getElementById('downloadReportBtn').addEventListener('click', downloadReport);
-            document.getElementById('browseBtn').addEventListener('click', browseDirectory);
+            document.querySelector('#findingsTable tbody').addEventListener('click', handleEvidenceAction);
+            document.getElementById('advancedToggle').addEventListener('click', toggleAdvancedPanel);
             
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -710,22 +919,6 @@
                     document.getElementById('tab-' + this.dataset.tab).classList.add('active');
                 });
             });
-            
-            function browseDirectory() {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.webkitdirectory = true;
-                input.mozdirectory = true;
-                input.directory = true;
-                
-                input.addEventListener('change', function(e) {
-                    if (this.files && this.files.length > 0) {
-                        document.getElementById('directoryPath').value = this.files[0].path;
-                    }
-                });
-                
-                input.click();
-            }
             
             function startAudit() {
                 const employeeName = document.getElementById('employeeName').value.trim();
@@ -741,17 +934,17 @@
                 }
                 
                 if (!directoryPath) {
-                    alert('请输入工作目录路径');
+                    alert('请输入取证数据目录');
                     document.getElementById('directoryPath').focus();
                     return;
                 }
                 
-                if (!startDate || !endDate) {
-                    alert('请选择审计日期范围');
+                if ((startDate && !endDate) || (!startDate && endDate)) {
+                    alert('高级筛选中日期需要同时填写起始日期和结束日期，或全部留空');
                     return;
                 }
                 
-                if (new Date(startDate) > new Date(endDate)) {
+                if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
                     alert('开始日期不能晚于结束日期');
                     return;
                 }
@@ -762,7 +955,10 @@
                 
                 fetch('/api/start-audit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Local-Token': localAccessToken
+                    },
                     body: JSON.stringify({
                         employee_name: employeeName,
                         directory_path: directoryPath,
@@ -804,7 +1000,9 @@
             function checkStatus() {
                 if (!currentTaskId) return;
                 
-                fetch('/api/audit-status/' + currentTaskId)
+                fetch('/api/audit-status/' + currentTaskId, {
+                    headers: { 'X-Local-Token': localAccessToken }
+                })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('HTTP ' + response.status);
@@ -866,7 +1064,15 @@
                 const badge = document.getElementById('riskLevelBadge');
                 badge.textContent = level;
                 badge.className = 'risk-level risk-' + getRiskClass(level);
+
+                const evidenceEvents = result.evidence_events || [];
+                const chains = result.evidence_chains || [];
+                document.getElementById('evidenceEventsCount').textContent = evidenceEvents.length;
+                document.getElementById('chainCompleteness').textContent = chains.length ? (chains[0].completeness || 0) + '%' : '0%';
                 
+                displayEvidenceChains(chains);
+                displayScoreBreakdown(result.scoring_breakdown || []);
+                displayEvidenceEvents(evidenceEvents);
                 displayFindings(result.content_findings || []);
                 displayTimeline(result.timeline || []);
                 displayRisk(result.findings || []);
@@ -881,6 +1087,91 @@
                     default: return 'none';
                 }
             }
+
+            function displayEvidenceChains(chains) {
+                const container = document.getElementById('chainContainer');
+                container.innerHTML = '';
+
+                if (!chains.length) {
+                    container.innerHTML = '<div class="empty-state"><p>暂无证据链</p></div>';
+                    return;
+                }
+
+                chains.forEach(chain => {
+                    const chainEl = document.createElement('div');
+                    chainEl.className = 'chain-card';
+                    const stagesHtml = (chain.events || []).map(event => `
+                        <div class="stage-item">
+                            <div class="stage-label">${escapeHtml(event.stage_label || '')}</div>
+                            <div class="stage-title">${escapeHtml(event.title || '-')}</div>
+                            <div class="stage-desc">${escapeHtml(event.description || '-')}</div>
+                        </div>
+                    `).join('');
+
+                    const missingHtml = (chain.missing_stages || []).length
+                        ? `<div class="chain-summary">缺失环节：${escapeHtml((chain.missing_stages || []).join('、'))}</div>`
+                        : '<div class="chain-summary">关键环节完整，建议人工复核原始证据。</div>';
+
+                    chainEl.innerHTML = `
+                        <div class="chain-header">
+                            <div>
+                                <div class="chain-title">${escapeHtml(chain.title || '证据链')}</div>
+                                <div class="chain-summary">${escapeHtml(chain.summary || '')}</div>
+                                ${missingHtml}
+                            </div>
+                            <div class="chain-meter">
+                                <div>${chain.completeness || 0}%</div>
+                                <div style="font-size: 12px; color: #627d98;">完整度 / 置信度 ${chain.confidence || 0}%</div>
+                            </div>
+                        </div>
+                        <div class="chain-stages">${stagesHtml}</div>
+                    `;
+                    container.appendChild(chainEl);
+                });
+            }
+
+            function displayScoreBreakdown(items) {
+                const container = document.getElementById('scoreBreakdown');
+                if (!items.length) {
+                    container.innerHTML = '<div class="empty-state"><p>暂无评分解释</p></div>';
+                    return;
+                }
+
+                container.innerHTML = items.map(item => `
+                    <div class="score-row">
+                        <div class="score-id">${escapeHtml(item.rule_id || '-')}</div>
+                        <div>
+                            <div class="score-name">${escapeHtml(item.name || '-')}</div>
+                            <div class="score-desc">${escapeHtml(item.description || '-')}</div>
+                            <div class="score-desc">依据：${escapeHtml(item.basis || '-')}</div>
+                        </div>
+                        <div class="score-value">${item.score || 0}</div>
+                    </div>
+                `).join('');
+            }
+
+            function displayEvidenceEvents(events) {
+                const tbody = document.querySelector('#eventsTable tbody');
+                tbody.innerHTML = '';
+
+                if (!events.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">暂无证据事件</td></tr>';
+                    return;
+                }
+
+                events.forEach(event => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${escapeHtml(formatEventTime(event.timestamp))}</td>
+                        <td>${escapeHtml(event.stage_label || '-')}</td>
+                        <td>${escapeHtml(event.source || '-')}</td>
+                        <td title="${escapeHtml(event.description || '')}">${escapeHtml(event.title || '-')}</td>
+                        <td>${escapeHtml(event.strength || '-')}</td>
+                        <td>${event.confidence || 0}%</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
             
             function displayFindings(findings) {
                 const tbody = document.querySelector('#findingsTable tbody');
@@ -893,18 +1184,51 @@
                 
                 findings.forEach((f, index) => {
                     const row = document.createElement('tr');
+                    const isLocalPath = f.file_path && !f.file_path.startsWith('http://') && !f.file_path.startsWith('https://');
+                    const pathAttr = escapeHtml(f.file_path || '');
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td>${f.type}</td>
-                        <td>${f.file_name || '-'}</td>
-                        <td title="${f.file_path}">${f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-'}</td>
-                        <td>${f.description || '-'}</td>
+                        <td>${escapeHtml(f.type || '-')}</td>
+                        <td>${escapeHtml(f.file_name || '-')}</td>
+                        <td title="${escapeHtml(f.file_path || '')}">${escapeHtml(f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-')}</td>
+                        <td>${escapeHtml(f.description || '-')}</td>
                         <td>
-                            ${f.file_path ? '<span class="evidence-link">' + (f.file_path.length > 50 ? '...' : '') + '</span>' : '-'}
+                            ${f.file_path ? '<button class="btn btn-secondary copy-path" data-path="' + pathAttr + '" style="padding: 6px 10px; font-size: 12px;">复制路径</button>' : '-'}
+                            ${isLocalPath ? '<button class="btn btn-secondary reveal-path" data-path="' + pathAttr + '" style="padding: 6px 10px; font-size: 12px; margin-left: 6px;">打开所在文件夹</button>' : ''}
                         </td>
                     `;
                     tbody.appendChild(row);
                 });
+            }
+
+            function handleEvidenceAction(event) {
+                const target = event.target;
+                if (!target.matches('.copy-path') && !target.matches('.reveal-path')) return;
+
+                const filePath = target.dataset.path;
+                if (!filePath) return;
+
+                if (target.matches('.copy-path')) {
+                    navigator.clipboard.writeText(filePath).then(() => {
+                        target.textContent = '已复制';
+                        setTimeout(() => target.textContent = '复制路径', 1200);
+                    });
+                    return;
+                }
+
+                fetch('/api/reveal-path/' + currentTaskId, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Local-Token': localAccessToken
+                    },
+                    body: JSON.stringify({ file_path: filePath })
+                })
+                .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) alert(data.error || '无法打开所在文件夹');
+                })
+                .catch(error => alert('无法打开所在文件夹: ' + error.message));
             }
             
             function displayTimeline(timeline) {
@@ -938,9 +1262,9 @@
                     const eventEl = document.createElement('div');
                     eventEl.className = 'timeline-event';
                     eventEl.innerHTML = `
-                        <span class="timeline-time">${timeStr}</span>
-                        <span class="timeline-type">${eventType}</span>
-                        <div class="timeline-desc">${desc || '-'}</div>
+                        <span class="timeline-time">${escapeHtml(timeStr)}</span>
+                        <span class="timeline-type">${escapeHtml(eventType)}</span>
+                        <div class="timeline-desc">${escapeHtml(desc || '-')}</div>
                     `;
                     container.appendChild(eventEl);
                 });
@@ -961,10 +1285,10 @@
                         f.severity === 'medium' ? 'medium' : 'low');
                     row.innerHTML = `
                         <td>${f.rule_id || '-'}</td>
-                        <td>${f.rule_name || '-'}</td>
+                        <td>${escapeHtml(f.rule_name || '-')}</td>
                         <td>${f.score || 0}</td>
-                        <td>${f.description || '-'}</td>
-                        <td><span class="${severityClass}">${f.severity || '-'}</span></td>
+                        <td>${escapeHtml(f.description || '-')}</td>
+                        <td><span class="${severityClass}">${escapeHtml(f.severity || '-')}</span></td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -976,7 +1300,7 @@
                 fileSummary.innerHTML = `
                     <p><strong>扫描文件数:</strong> ${fs.total_files || 0}</p>
                     <p><strong>文件大小:</strong> ${fs.total_size || '0 B'}</p>
-                    <p><strong>文件类型分布:</strong> ${fs.file_types ? JSON.stringify(fs.file_types) : '{}'}</p>
+                    <p><strong>文件类型分布:</strong> ${escapeHtml(fs.file_types ? JSON.stringify(fs.file_types) : '{}')}</p>
                 `;
                 
                 const bs = result.browser_summary || {};
@@ -1008,21 +1332,48 @@
                     return;
                 }
                 
-                window.location.href = '/api/download-report/' + currentTaskId;
+                window.location.href = '/api/download-report/' + currentTaskId + '?token=' + encodeURIComponent(localAccessToken);
             }
             
             function resetForm() {
                 document.getElementById('employeeName').value = '';
                 document.getElementById('directoryPath').value = '';
                 document.getElementById('chatDbPath').value = '';
-                document.getElementById('startDate').value = thirtyDaysAgo;
-                document.getElementById('endDate').value = today;
+                document.getElementById('startDate').value = '';
+                document.getElementById('endDate').value = '';
+                document.getElementById('advancedPanel').classList.remove('active');
+                document.getElementById('advancedToggle').textContent = '展开高级筛选';
                 document.getElementById('resultCard').style.display = 'none';
                 document.getElementById('progressSection').style.display = 'none';
                 document.getElementById('progressBar').style.width = '0%';
                 currentTaskId = null;
                 if (statusInterval) clearInterval(statusInterval);
             }
+
+            function toggleAdvancedPanel() {
+                const panel = document.getElementById('advancedPanel');
+                const isOpen = panel.classList.toggle('active');
+                document.getElementById('advancedToggle').textContent = isOpen ? '收起高级筛选' : '展开高级筛选';
+            }
+
+            function escapeHtml(text) {
+                if (text === null || text === undefined) return '';
+                return String(text)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function formatEventTime(timestamp) {
+                if (!timestamp) return '';
+                if (typeof timestamp === 'string') {
+                    return timestamp.replace('T', ' ').substring(0, 19);
+                }
+                return String(timestamp);
+            }
+
         });
     </script>
 </body>

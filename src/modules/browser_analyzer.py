@@ -357,7 +357,10 @@ class BrowserAnalyzer:
                     'file_name': title,
                     'modify_time': data['first_time'],
                     'severity': 'medium',
-                    'description': f"{description_prefix}{count_suffix}: 匹配关键词: {keywords_str}"
+                    'evidence_strength': '环境记录',
+                    'keyword_score': min(20, 5 + visit_count),
+                    'keyword_categories': {'transfer_channel': len(data['keywords']) or 1},
+                    'description': f"{description_prefix}{count_suffix}: 匹配关键词: {keywords_str}（证据强度：环境记录）"
                 })
         
         add_visit_group(self.cloud_visits, 'cloud_storage', '访问云存储服务')

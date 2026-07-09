@@ -55,6 +55,10 @@ class HTMLReportGenerator:
                 data[key] = value
             elif key == 'data_sources':
                 data[key] = {str(k): str(v) for k, v in value.items()}
+            elif key == 'evidence_type_summary':
+                data[key] = value
+            elif key in ('evidence_events', 'evidence_chains', 'scoring_breakdown'):
+                data[key] = self._serialize_generic(value)
             elif isinstance(value, (str, int, float, bool)):
                 data[key] = value
             else:
@@ -64,6 +68,17 @@ class HTMLReportGenerator:
                     data[key] = ''
         
         return json.dumps(data, ensure_ascii=False, indent=2)
+
+    def _serialize_generic(self, value):
+        if isinstance(value, datetime):
+            return value.strftime('%Y-%m-%d %H:%M:%S')
+        if isinstance(value, list):
+            return [self._serialize_generic(item) for item in value]
+        if isinstance(value, dict):
+            return {str(k): self._serialize_generic(v) for k, v in value.items()}
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            return value
+        return str(value)
     
     def _serialize_timeline(self, timeline):
         result = []
