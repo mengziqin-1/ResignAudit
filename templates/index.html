@@ -8,18 +8,21 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         :root {
-            --primary: #667eea;
-            --primary-dark: #764ba2;
+            --primary: #1f4e79;
+            --primary-dark: #163b5c;
             --success: #10b981;
             --warning: #f59e0b;
             --danger: #ef4444;
-            --info: #3b82f6;
-            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --info: #2563eb;
+            --bg-gradient: linear-gradient(135deg, #1f4e79 0%, #163b5c 100%);
+            --surface: #ffffff;
+            --page: #f3f6f9;
+            --border: #d9e2ec;
         }
         
         body {
             font-family: 'Microsoft YaHei', 'PingFang SC', 'SimHei', sans-serif;
-            background: var(--bg-gradient);
+            background: var(--page);
             min-height: 100vh;
             padding: 20px;
             line-height: 1.6;
@@ -31,31 +34,31 @@
         }
         
         .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
+            text-align: left;
+            color: #102a43;
+            margin-bottom: 18px;
             animation: fadeInDown 0.6s ease;
         }
         
         .header h1 {
-            font-size: 42px;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            font-size: 28px;
+            margin-bottom: 4px;
             font-weight: 700;
         }
         
         .header p {
-            font-size: 18px;
-            opacity: 0.9;
-            letter-spacing: 2px;
+            font-size: 14px;
+            color: #52606d;
+            letter-spacing: 0;
         }
         
         .card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-            padding: 40px;
-            margin-bottom: 25px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+            padding: 28px;
+            margin-bottom: 18px;
             animation: fadeInUp 0.6s ease;
         }
         
@@ -69,10 +72,10 @@
         }
         
         .card-header .icon {
-            width: 45px;
-            height: 45px;
+            width: 38px;
+            height: 38px;
             background: var(--bg-gradient);
-            border-radius: 12px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -125,7 +128,7 @@
             width: 100%;
             padding: 15px 20px;
             border: 2px solid #e0e0e0;
-            border-radius: 12px;
+            border-radius: 6px;
             font-size: 15px;
             transition: all 0.3s;
             background: #fafafa;
@@ -152,7 +155,7 @@
         .btn {
             padding: 12px 24px;
             border: none;
-            border-radius: 10px;
+            border-radius: 6px;
             font-size: 15px;
             font-weight: 600;
             cursor: pointer;
@@ -222,7 +225,7 @@
             display: none;
             padding: 25px;
             background: #f8fafc;
-            border-radius: 15px;
+            border-radius: 8px;
             animation: fadeIn 0.3s ease;
         }
         
@@ -337,7 +340,7 @@
             border-collapse: collapse;
             margin-top: 10px;
             background: #fafafa;
-            border-radius: 12px;
+            border-radius: 8px;
             overflow: hidden;
         }
         
@@ -391,9 +394,9 @@
         }
         
         .summary-card {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f8fafc;
             padding: 25px;
-            border-radius: 15px;
+            border-radius: 8px;
             text-align: center;
             transition: transform 0.3s, box-shadow 0.3s;
             border-left: 4px solid var(--primary);
@@ -507,6 +510,131 @@
             gap: 15px;
             flex-wrap: wrap;
         }
+
+        .workbench-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.8fr);
+            gap: 18px;
+            align-items: start;
+        }
+
+        .chain-card {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 18px;
+            background: #fff;
+            margin-bottom: 14px;
+        }
+
+        .chain-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            margin-bottom: 14px;
+        }
+
+        .chain-title {
+            font-weight: 700;
+            color: #102a43;
+            font-size: 16px;
+        }
+
+        .chain-summary {
+            color: #52606d;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        .chain-meter {
+            min-width: 130px;
+            text-align: right;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .chain-stages {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .stage-item {
+            border: 1px solid #dbe4ee;
+            border-left: 4px solid var(--primary);
+            border-radius: 6px;
+            padding: 12px;
+            background: #f8fafc;
+            min-height: 100px;
+        }
+
+        .stage-label {
+            font-size: 12px;
+            color: #52606d;
+            margin-bottom: 6px;
+        }
+
+        .stage-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #102a43;
+            margin-bottom: 6px;
+        }
+
+        .stage-desc {
+            font-size: 12px;
+            color: #627d98;
+            line-height: 1.45;
+        }
+
+        .side-panel {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fff;
+            padding: 16px;
+        }
+
+        .side-panel h3 {
+            font-size: 15px;
+            color: #102a43;
+            margin-bottom: 12px;
+        }
+
+        .score-row {
+            display: grid;
+            grid-template-columns: 70px 1fr 54px;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid #edf2f7;
+            align-items: start;
+            font-size: 13px;
+        }
+
+        .score-row:last-child {
+            border-bottom: none;
+        }
+
+        .score-id {
+            color: #52606d;
+            font-family: Consolas, monospace;
+        }
+
+        .score-name {
+            font-weight: 700;
+            color: #102a43;
+        }
+
+        .score-desc {
+            color: #627d98;
+            margin-top: 3px;
+            line-height: 1.45;
+        }
+
+        .score-value {
+            text-align: right;
+            font-weight: 700;
+            color: var(--primary);
+        }
         
         @media (max-width: 768px) {
             .form-row {
@@ -515,6 +643,10 @@
             
             .summary-cards {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .workbench-grid {
+                grid-template-columns: 1fr;
             }
             
             .card {
@@ -539,18 +671,18 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔒 离职安全审计系统</h1>
-            <p>自动化数据取证与风险评估平台</p>
+            <h1>离职场景电子数据取证系统</h1>
+            <p>本地取证辅助、证据分析与风险报告生成</p>
         </div>
         
         <div class="card">
             <div class="card-header">
-                <div class="icon">⚙️</div>
+                <div class="icon">审</div>
                 <h2>审计参数配置</h2>
             </div>
             
             <div class="info-box">
-                <strong>💡 使用提示：</strong>日期范围用于筛选文件修改时间，只审计指定时间段内修改过的文件。测试时可使用 <code>D:\Project_resign\ResignAudit\test_data</code> 作为目录路径。
+                <strong>使用提示：</strong>日期范围用于筛选文件修改时间。Web端主要用于结果展示和接口调试，核心本地取证建议使用 PyQT 客户端。测试时可使用 <code>test_data</code> 作为目录路径。
             </div>
             
             <div class="form-row">
@@ -560,13 +692,17 @@
                 </div>
                 <div class="form-group">
                     <label><span class="required">*</span> 工作目录路径</label>
-                    <div class="input-group">
-                        <input type="text" id="directoryPath" placeholder="请输入要扫描的目录路径">
-                        <button class="btn btn-icon" id="browseBtn" title="选择目录">📁</button>
-                    </div>
+                    <input type="text" id="directoryPath" placeholder="请输入本机目录路径，例如 D:\Project_resign\ResignAudit-main\test_data">
                 </div>
             </div>
-            
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>聊天记录样本 <span class="hint">可选，例如 test_data/mock_chat.sqlite</span></label>
+                    <input type="text" id="chatDbPath" placeholder="请输入聊天记录SQLite样本路径">
+                </div>
+            </div>
+
             <div class="form-row">
                 <div class="form-group">
                     <label>审计开始日期 <span class="hint">（筛选修改时间在此之后的文件）</span></label>
@@ -579,8 +715,8 @@
             </div>
             
             <div class="btn-group">
-                <button class="btn btn-primary" id="startBtn">🚀 开始审计</button>
-                <button class="btn btn-secondary" id="resetBtn">🔄 重置</button>
+                <button class="btn btn-primary" id="startBtn">开始审计</button>
+                <button class="btn btn-secondary" id="resetBtn"> 重置</button>
             </div>
             
             <div class="progress-section" id="progressSection">
@@ -596,7 +732,7 @@
         
         <div class="card" id="resultCard" style="display: none;">
             <div class="card-header">
-                <div class="icon">📊</div>
+                <div class="icon">报</div>
                 <h2>审计结果</h2>
             </div>
             
@@ -617,18 +753,54 @@
                     <div class="risk-level" id="riskLevelBadge">无风险</div>
                     <div class="label">风险等级</div>
                 </div>
+                <div class="summary-card">
+                    <div class="number" id="evidenceEventsCount">0</div>
+                    <div class="label">证据事件数</div>
+                </div>
+                <div class="summary-card">
+                    <div class="number" id="chainCompleteness">0%</div>
+                    <div class="label">链路完整度</div>
+                </div>
             </div>
             
-            <button class="btn btn-success" id="downloadReportBtn" style="margin-bottom: 25px;">📄 下载PDF报告</button>
+            <button class="btn btn-success" id="downloadReportBtn" style="margin-bottom: 25px;">下载PDF报告</button>
             
             <div class="tabs">
-                <button class="tab-btn active" data-tab="findings">🔍 审计发现</button>
-                <button class="tab-btn" data-tab="timeline">⏱️ 事件时间线</button>
-                <button class="tab-btn" data-tab="risk">⚠️ 风险评估</button>
-                <button class="tab-btn" data-tab="summary">📈 统计摘要</button>
+                <button class="tab-btn active" data-tab="chain">证据链</button>
+                <button class="tab-btn" data-tab="events">证据事件</button>
+                <button class="tab-btn" data-tab="findings">审计发现</button>
+                <button class="tab-btn" data-tab="timeline">事件时间线</button>
+                <button class="tab-btn" data-tab="risk"> 风险评估</button>
+                <button class="tab-btn" data-tab="summary">统计摘要</button>
+            </div>
+
+            <div class="tab-content active" id="tab-chain">
+                <div class="workbench-grid">
+                    <div id="chainContainer"></div>
+                    <div class="side-panel">
+                        <h3>评分解释</h3>
+                        <div id="scoreBreakdown"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-events">
+                <table id="eventsTable">
+                    <thead>
+                        <tr>
+                            <th>时间</th>
+                            <th>证据阶段</th>
+                            <th>来源</th>
+                            <th>证据标题</th>
+                            <th>强度</th>
+                            <th>置信度</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
             </div>
             
-            <div class="tab-content active" id="tab-findings">
+            <div class="tab-content" id="tab-findings">
                 <table id="findingsTable">
                     <thead>
                         <tr>
@@ -664,16 +836,16 @@
             </div>
             
             <div class="tab-content" id="tab-summary">
-                <h3 style="margin-bottom: 15px; color: #333;">📁 文件扫描统计</h3>
+                <h3 style="margin-bottom: 15px; color: #333;">文件扫描统计</h3>
                 <div id="fileSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">🌐 浏览器行为统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;"> 浏览器行为统计</h3>
                 <div id="browserSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">💾 USB设备统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">USB设备统计</h3>
                 <div id="usbSummary"></div>
                 
-                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">💬 聊天记录统计</h3>
+                <h3 style="margin-bottom: 15px; margin-top: 25px; color: #333;">聊天记录统计</h3>
                 <div id="chatSummary"></div>
             </div>
         </div>
@@ -681,6 +853,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const localAccessToken = '{{ local_access_token }}';
             const today = new Date().toISOString().split('T')[0];
             const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
             
@@ -693,7 +866,7 @@
             document.getElementById('startBtn').addEventListener('click', startAudit);
             document.getElementById('resetBtn').addEventListener('click', resetForm);
             document.getElementById('downloadReportBtn').addEventListener('click', downloadReport);
-            document.getElementById('browseBtn').addEventListener('click', browseDirectory);
+            document.querySelector('#findingsTable tbody').addEventListener('click', handleEvidenceAction);
             
             document.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
@@ -704,28 +877,13 @@
                 });
             });
             
-            function browseDirectory() {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.webkitdirectory = true;
-                input.mozdirectory = true;
-                input.directory = true;
-                
-                input.addEventListener('change', function(e) {
-                    if (this.files && this.files.length > 0) {
-                        document.getElementById('directoryPath').value = this.files[0].path;
-                    }
-                });
-                
-                input.click();
-            }
-            
             function startAudit() {
                 const employeeName = document.getElementById('employeeName').value.trim();
                 const directoryPath = document.getElementById('directoryPath').value.trim();
+                const chatDbPath = document.getElementById('chatDbPath').value.trim();
                 const startDate = document.getElementById('startDate').value;
                 const endDate = document.getElementById('endDate').value;
-                
+
                 if (!employeeName) {
                     alert('请输入员工姓名');
                     document.getElementById('employeeName').focus();
@@ -754,10 +912,14 @@
                 
                 fetch('/api/start-audit', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Local-Token': localAccessToken
+                    },
                     body: JSON.stringify({
                         employee_name: employeeName,
                         directory_path: directoryPath,
+                        chat_db_path: chatDbPath,
                         start_date: startDate,
                         end_date: endDate
                     })
@@ -795,7 +957,9 @@
             function checkStatus() {
                 if (!currentTaskId) return;
                 
-                fetch('/api/audit-status/' + currentTaskId)
+                fetch('/api/audit-status/' + currentTaskId, {
+                    headers: { 'X-Local-Token': localAccessToken }
+                })
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('HTTP ' + response.status);
@@ -853,11 +1017,19 @@
                 const riskScore = result.scan_results && result.scan_results.risk_score || 0;
                 document.getElementById('riskScore').textContent = riskScore;
                 
-                const level = result.risk_level || '无风险';
+                const level = result.risk_level && result.risk_level.level ? result.risk_level.level : '无风险';
                 const badge = document.getElementById('riskLevelBadge');
                 badge.textContent = level;
                 badge.className = 'risk-level risk-' + getRiskClass(level);
+
+                const evidenceEvents = result.evidence_events || [];
+                const chains = result.evidence_chains || [];
+                document.getElementById('evidenceEventsCount').textContent = evidenceEvents.length;
+                document.getElementById('chainCompleteness').textContent = chains.length ? (chains[0].completeness || 0) + '%' : '0%';
                 
+                displayEvidenceChains(chains);
+                displayScoreBreakdown(result.scoring_breakdown || []);
+                displayEvidenceEvents(evidenceEvents);
                 displayFindings(result.content_findings || []);
                 displayTimeline(result.timeline || []);
                 displayRisk(result.findings || []);
@@ -872,6 +1044,91 @@
                     default: return 'none';
                 }
             }
+
+            function displayEvidenceChains(chains) {
+                const container = document.getElementById('chainContainer');
+                container.innerHTML = '';
+
+                if (!chains.length) {
+                    container.innerHTML = '<div class="empty-state"><p>暂无证据链</p></div>';
+                    return;
+                }
+
+                chains.forEach(chain => {
+                    const chainEl = document.createElement('div');
+                    chainEl.className = 'chain-card';
+                    const stagesHtml = (chain.events || []).map(event => `
+                        <div class="stage-item">
+                            <div class="stage-label">${escapeHtml(event.stage_label || '')}</div>
+                            <div class="stage-title">${escapeHtml(event.title || '-')}</div>
+                            <div class="stage-desc">${escapeHtml(event.description || '-')}</div>
+                        </div>
+                    `).join('');
+
+                    const missingHtml = (chain.missing_stages || []).length
+                        ? `<div class="chain-summary">缺失环节：${escapeHtml((chain.missing_stages || []).join('、'))}</div>`
+                        : '<div class="chain-summary">关键环节完整，建议人工复核原始证据。</div>';
+
+                    chainEl.innerHTML = `
+                        <div class="chain-header">
+                            <div>
+                                <div class="chain-title">${escapeHtml(chain.title || '证据链')}</div>
+                                <div class="chain-summary">${escapeHtml(chain.summary || '')}</div>
+                                ${missingHtml}
+                            </div>
+                            <div class="chain-meter">
+                                <div>${chain.completeness || 0}%</div>
+                                <div style="font-size: 12px; color: #627d98;">完整度 / 置信度 ${chain.confidence || 0}%</div>
+                            </div>
+                        </div>
+                        <div class="chain-stages">${stagesHtml}</div>
+                    `;
+                    container.appendChild(chainEl);
+                });
+            }
+
+            function displayScoreBreakdown(items) {
+                const container = document.getElementById('scoreBreakdown');
+                if (!items.length) {
+                    container.innerHTML = '<div class="empty-state"><p>暂无评分解释</p></div>';
+                    return;
+                }
+
+                container.innerHTML = items.map(item => `
+                    <div class="score-row">
+                        <div class="score-id">${escapeHtml(item.rule_id || '-')}</div>
+                        <div>
+                            <div class="score-name">${escapeHtml(item.name || '-')}</div>
+                            <div class="score-desc">${escapeHtml(item.description || '-')}</div>
+                            <div class="score-desc">依据：${escapeHtml(item.basis || '-')}</div>
+                        </div>
+                        <div class="score-value">${item.score || 0}</div>
+                    </div>
+                `).join('');
+            }
+
+            function displayEvidenceEvents(events) {
+                const tbody = document.querySelector('#eventsTable tbody');
+                tbody.innerHTML = '';
+
+                if (!events.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 30px;">暂无证据事件</td></tr>';
+                    return;
+                }
+
+                events.forEach(event => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${escapeHtml(formatEventTime(event.timestamp))}</td>
+                        <td>${escapeHtml(event.stage_label || '-')}</td>
+                        <td>${escapeHtml(event.source || '-')}</td>
+                        <td title="${escapeHtml(event.description || '')}">${escapeHtml(event.title || '-')}</td>
+                        <td>${escapeHtml(event.strength || '-')}</td>
+                        <td>${event.confidence || 0}%</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            }
             
             function displayFindings(findings) {
                 const tbody = document.querySelector('#findingsTable tbody');
@@ -884,18 +1141,51 @@
                 
                 findings.forEach((f, index) => {
                     const row = document.createElement('tr');
+                    const isLocalPath = f.file_path && !f.file_path.startsWith('http://') && !f.file_path.startsWith('https://');
+                    const pathAttr = escapeHtml(f.file_path || '');
                     row.innerHTML = `
                         <td>${index + 1}</td>
-                        <td>${f.type}</td>
-                        <td>${f.file_name || '-'}</td>
-                        <td title="${f.file_path}">${f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-'}</td>
-                        <td>${f.description || '-'}</td>
+                        <td>${escapeHtml(f.type || '-')}</td>
+                        <td>${escapeHtml(f.file_name || '-')}</td>
+                        <td title="${escapeHtml(f.file_path || '')}">${escapeHtml(f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-')}</td>
+                        <td>${escapeHtml(f.description || '-')}</td>
                         <td>
-                            ${f.file_path ? '<a href="#" class="evidence-link" onclick="openFile(\'' + f.file_path.replace(/\\/g, '\\\\') + '\')">定位文件</a>' : '-'}
+                            ${f.file_path ? '<button class="btn btn-secondary copy-path" data-path="' + pathAttr + '" style="padding: 6px 10px; font-size: 12px;">复制路径</button>' : '-'}
+                            ${isLocalPath ? '<button class="btn btn-secondary reveal-path" data-path="' + pathAttr + '" style="padding: 6px 10px; font-size: 12px; margin-left: 6px;">打开所在文件夹</button>' : ''}
                         </td>
                     `;
                     tbody.appendChild(row);
                 });
+            }
+
+            function handleEvidenceAction(event) {
+                const target = event.target;
+                if (!target.matches('.copy-path') && !target.matches('.reveal-path')) return;
+
+                const filePath = target.dataset.path;
+                if (!filePath) return;
+
+                if (target.matches('.copy-path')) {
+                    navigator.clipboard.writeText(filePath).then(() => {
+                        target.textContent = '已复制';
+                        setTimeout(() => target.textContent = '复制路径', 1200);
+                    });
+                    return;
+                }
+
+                fetch('/api/reveal-path/' + currentTaskId, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Local-Token': localAccessToken
+                    },
+                    body: JSON.stringify({ file_path: filePath })
+                })
+                .then(response => response.json().then(data => ({ ok: response.ok, data })))
+                .then(({ ok, data }) => {
+                    if (!ok) alert(data.error || '无法打开所在文件夹');
+                })
+                .catch(error => alert('无法打开所在文件夹: ' + error.message));
             }
             
             function displayTimeline(timeline) {
@@ -907,7 +1197,7 @@
                     return;
                 }
                 
-                timeline.slice(0, 30).forEach(event => {
+                timeline.forEach(event => {
                     const timestamp = event.timestamp;
                     const timeStr = typeof timestamp === 'string' ? timestamp : 
                         (timestamp && timestamp.strftime ? timestamp.strftime('%Y-%m-%d %H:%M:%S') : '未知时间');
@@ -916,16 +1206,22 @@
                     let desc = '';
                     
                     if (event.file_name) desc = event.file_name;
-                    else if (event.description) desc = String(event.description).substring(0, 80);
-                    else if (event.url) desc = String(event.url).substring(0, 80);
+                    else if (event.description) desc = String(event.description);
+                    else if (event.url) {
+                        if (event.title) {
+                            desc = event.title + ' - ' + event.url;
+                        } else {
+                            desc = event.url;
+                        }
+                    }
                     else if (event.device_name) desc = event.device_name;
                     
                     const eventEl = document.createElement('div');
                     eventEl.className = 'timeline-event';
                     eventEl.innerHTML = `
-                        <span class="timeline-time">${timeStr}</span>
-                        <span class="timeline-type">${eventType}</span>
-                        <div class="timeline-desc">${desc || '-'}</div>
+                        <span class="timeline-time">${escapeHtml(timeStr)}</span>
+                        <span class="timeline-type">${escapeHtml(eventType)}</span>
+                        <div class="timeline-desc">${escapeHtml(desc || '-')}</div>
                     `;
                     container.appendChild(eventEl);
                 });
@@ -946,10 +1242,10 @@
                         f.severity === 'medium' ? 'medium' : 'low');
                     row.innerHTML = `
                         <td>${f.rule_id || '-'}</td>
-                        <td>${f.rule_name || '-'}</td>
+                        <td>${escapeHtml(f.rule_name || '-')}</td>
                         <td>${f.score || 0}</td>
-                        <td>${f.description || '-'}</td>
-                        <td><span class="${severityClass}">${f.severity || '-'}</span></td>
+                        <td>${escapeHtml(f.description || '-')}</td>
+                        <td><span class="${severityClass}">${escapeHtml(f.severity || '-')}</span></td>
                     `;
                     tbody.appendChild(row);
                 });
@@ -961,7 +1257,7 @@
                 fileSummary.innerHTML = `
                     <p><strong>扫描文件数:</strong> ${fs.total_files || 0}</p>
                     <p><strong>文件大小:</strong> ${fs.total_size || '0 B'}</p>
-                    <p><strong>文件类型分布:</strong> ${fs.file_types ? JSON.stringify(fs.file_types) : '{}'}</p>
+                    <p><strong>文件类型分布:</strong> ${escapeHtml(fs.file_types ? JSON.stringify(fs.file_types) : '{}')}</p>
                 `;
                 
                 const bs = result.browser_summary || {};
@@ -993,12 +1289,13 @@
                     return;
                 }
                 
-                window.location.href = '/api/download-report/' + currentTaskId;
+                window.location.href = '/api/download-report/' + currentTaskId + '?token=' + encodeURIComponent(localAccessToken);
             }
             
             function resetForm() {
                 document.getElementById('employeeName').value = '';
                 document.getElementById('directoryPath').value = '';
+                document.getElementById('chatDbPath').value = '';
                 document.getElementById('startDate').value = thirtyDaysAgo;
                 document.getElementById('endDate').value = today;
                 document.getElementById('resultCard').style.display = 'none';
@@ -1007,23 +1304,25 @@
                 currentTaskId = null;
                 if (statusInterval) clearInterval(statusInterval);
             }
-            
-            window.openFile = function(filePath) {
-                fetch('/api/open-file', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ file_path: filePath })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.error) {
-                        alert('无法打开文件: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                });
-            };
+
+            function escapeHtml(text) {
+                if (text === null || text === undefined) return '';
+                return String(text)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            function formatEventTime(timestamp) {
+                if (!timestamp) return '';
+                if (typeof timestamp === 'string') {
+                    return timestamp.replace('T', ' ').substring(0, 19);
+                }
+                return String(timestamp);
+            }
+
         });
     </script>
 </body>

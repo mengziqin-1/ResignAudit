@@ -1,17 +1,32 @@
 import os
 import re
-import winreg
+import json
+try:
+    import winreg
+except ImportError:
+    winreg = None
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 class USBAuditor:
     def __init__(self):
         self.usb_devices = []
         self.usb_operations = []
     
-    def audit_usb_devices(self, progress_callback=None):
+    def audit_usb_devices(self, progress_callback=None, mock_json_path=None):
         self.usb_devices = []
         self.usb_operations = []
+
+        if mock_json_path and os.path.exists(mock_json_path):
+            self._load_mock_usb_events(mock_json_path)
+            if progress_callback:
+                progress_callback(f"USB使用记录样本解析完成，共发现 {len(self.usb_devices)} 个设备事件、{len(self.usb_operations)} 条操作")
+            return self.usb_devices, self.usb_operations
+
+        if winreg is None:
+            if progress_callback:
+                progress_callback("当前环境不支持 Windows 注册表读取，已跳过真实 USB 注册表审计")
+            return self.usb_devices, self.usb_operations
         
         try:
             self._scan_usbstor_registry(progress_callback)
@@ -34,6 +49,46 @@ class USBAuditor:
             pass
         
         return self.usb_devices, self.usb_operations
+
+    def _load_mock_usb_events(self, mock_json_path):
+        with open(mock_json_path, 'r', encoding='utf-8') as f:
+            events = json.load(f)
+
+        for event in events:
+            event_time = self._parse_event_time(event.get('event_time'))
+            device_info = {
+                'device_path': mock_json_path,
+                'device_type': 'MOCK_USB_STORAGE',
+                'first_insert_time': event_time,
+                'last_insert_time': event_time,
+                'device_name': event.get('device_name', '未知USB设备'),
+                'vendor_id': '',
+                'product_id': '',
+                'serial_number': event.get('serial_number', ''),
+                'event_type': event.get('event_type', 'unknown'),
+                'timestamp': event_time or datetime.now()
+            }
+            self.usb_devices.append(device_info)
+
+            if event.get('event_type') in ('copy', 'write', 'archive_copy'):
+                file_count = int(event.get('file_count', 1) or 1)
+                self.usb_operations.append({
+                    'operation_type': event.get('event_type'),
+                    'device_id': event.get('serial_number', ''),
+                    'device_info': event.get('description', ''),
+                    'file_count': file_count,
+                    'timestamp': event_time or datetime.now()
+                })
+
+    def _parse_event_time(self, value):
+        if not value:
+            return None
+        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y/%m/%d %H:%M:%S'):
+            try:
+                return datetime.strptime(str(value), fmt)
+            except ValueError:
+                continue
+        return None
     
     def _scan_usbstor_registry(self, progress_callback=None):
         try:
@@ -114,6 +169,21 @@ class USBAuditor:
                     info['last_insert_time'] = self._parse_registry_time(last_access)
                 except WindowsError:
                     pass
+                
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
                 
                 return info
             finally:
@@ -196,6 +266,27 @@ class USBAuditor:
                 except WindowsError:
                     pass
                 
+                try:
+                    last_access, _ = winreg.QueryValueEx(hkey, 'LastAccessTime')
+                    info['last_insert_time'] = self._parse_registry_time(last_access)
+                except WindowsError:
+                    pass
+                
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
+                
                 return info
             finally:
                 winreg.CloseKey(hkey)
@@ -246,6 +337,21 @@ class USBAuditor:
                 
                 info['serial_number'] = os.path.basename(device_path)
                 
+                if info['first_insert_time'] is None or info['last_insert_time'] is None:
+                    try:
+                        key_info = winreg.QueryInfoKey(hkey)
+                        key_modified_timestamp = key_info[2]
+                        epoch_start = datetime(1601, 1, 1)
+                        nanoseconds_100 = key_modified_timestamp
+                        seconds = nanoseconds_100 // 10000000
+                        key_modified_datetime = epoch_start + timedelta(seconds=seconds)
+                        if info['first_insert_time'] is None:
+                            info['first_insert_time'] = key_modified_datetime
+                        if info['last_insert_time'] is None:
+                            info['last_insert_time'] = key_modified_datetime
+                    except:
+                        pass
+                
                 return info
             finally:
                 winreg.CloseKey(hkey)
@@ -261,17 +367,14 @@ class USBAuditor:
                 i = 0
                 while True:
                     try:
-                        value_name = winreg.EnumKey(hkey, i)
-                        try:
-                            value, _ = winreg.QueryValueEx(hkey, value_name)
-                            self.usb_operations.append({
-                                'operation_type': 'HUB_ENUM',
-                                'device_id': value_name,
-                                'device_info': value,
-                                'timestamp': datetime.now()
-                            })
-                        except WindowsError:
-                            pass
+                        # 该键下存放的是值（Count/NextInstance/0/1/...），应枚举值而非子键
+                        value_name, value, _ = winreg.EnumValue(hkey, i)
+                        self.usb_operations.append({
+                            'operation_type': 'HUB_ENUM',
+                            'device_id': value_name,
+                            'device_info': str(value),
+                            'timestamp': datetime.now()
+                        })
                         i += 1
                     except OSError:
                         break
@@ -294,6 +397,22 @@ class USBAuditor:
                 return datetime.fromtimestamp(int.from_bytes(time_value, 'little'))
             except:
                 return None
+        elif isinstance(time_value, int):
+            try:
+                epoch_start = datetime(1601, 1, 1)
+                nanoseconds_100 = time_value
+                seconds = nanoseconds_100 // 10000000
+                return epoch_start + timedelta(seconds=seconds)
+            except:
+                return None
+        elif isinstance(time_value, float):
+            try:
+                epoch_start = datetime(1601, 1, 1)
+                nanoseconds_100 = int(time_value)
+                seconds = nanoseconds_100 // 10000000
+                return epoch_start + timedelta(seconds=seconds)
+            except:
+                return None
         return None
     
     def get_usb_insertions_count(self, days=30):
@@ -304,8 +423,37 @@ class USBAuditor:
                 count += 1
         return count
     
+    def get_short_time_insertions(self, hours=4):
+        devices_with_time = []
+        for device in self.usb_devices:
+            if device['last_insert_time']:
+                devices_with_time.append(device['last_insert_time'])
+        
+        if len(devices_with_time) < 2:
+            return 0
+        
+        devices_with_time.sort()
+        
+        max_in_window = 0
+        for i, time1 in enumerate(devices_with_time):
+            window_end = time1 + timedelta(hours=hours)
+            count = 0
+            for time2 in devices_with_time[i:]:
+                if time2 <= window_end:
+                    count += 1
+                else:
+                    break
+            max_in_window = max(max_in_window, count)
+        
+        return max_in_window
+    
     def get_usb_file_copies(self):
-        return len(self.usb_operations)
+        total = 0
+        for operation in self.usb_operations:
+            if operation.get('operation_type') not in ('copy', 'write', 'archive_copy'):
+                continue
+            total += int(operation.get('file_count', 1) or 1)
+        return total
     
     def get_summary(self):
         return {

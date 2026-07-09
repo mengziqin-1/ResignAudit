@@ -4,6 +4,8 @@ import sqlite3
 import shutil
 from datetime import datetime
 
+from modules.keyword_policy import score_keywords
+
 class ChatAuditor:
     def __init__(self):
         self.chat_records = []
@@ -18,8 +20,14 @@ class ChatAuditor:
             with open(sensitive_file, 'r', encoding='utf-8') as f:
                 self.leak_keywords = [line.strip().lower() for line in f if line.strip()]
     
-    def audit_chat_records(self, progress_callback=None):
+    def audit_chat_records(self, progress_callback=None, mock_db_path=None):
         self.chat_records = []
+
+        if mock_db_path and os.path.exists(mock_db_path):
+            self.chat_records = self._parse_mock_chat_database(mock_db_path)
+            if progress_callback:
+                progress_callback(f"聊天记录样本解析完成，共发现 {len(self.chat_records)} 条记录")
+            return self.chat_records
         
         chat_paths = {
             'wechat': [
@@ -48,6 +56,39 @@ class ChatAuditor:
             progress_callback(f"聊天记录审计完成，共发现 {len(self.chat_records)} 条记录")
         
         return self.chat_records
+
+    def _parse_mock_chat_database(self, db_path):
+        records = []
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
+            if not cursor.fetchone():
+                return self._parse_chat_database(db_path, 'mock')
+
+            cursor.execute("SELECT platform, sender, receiver, content, send_time FROM messages ORDER BY send_time")
+            for row in cursor.fetchall():
+                send_time = self._parse_datetime(row['send_time'])
+                content = row['content'] or ''
+                record = {
+                    'chat_type': row['platform'] or 'mock',
+                    'table_name': 'messages',
+                    'sender': row['sender'] or '',
+                    'receiver': row['receiver'] or '',
+                    'content': content,
+                    'timestamp': send_time or datetime.now(),
+                    'has_leak_keywords': self._check_leak_keywords(content),
+                }
+                if record['has_leak_keywords']:
+                    record['matched_keywords'] = self._find_matched_keywords(content)
+                    keyword_meta = score_keywords(record['matched_keywords'])
+                    record.update(keyword_meta)
+                records.append(record)
+        finally:
+            conn.close()
+
+        return records
     
     def _scan_chat_directory(self, directory, chat_type):
         records = []
@@ -62,6 +103,18 @@ class ChatAuditor:
                         continue
         
         return records
+
+    def _parse_datetime(self, value):
+        if not value:
+            return None
+        if isinstance(value, datetime):
+            return value
+        for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y/%m/%d %H:%M:%S'):
+            try:
+                return datetime.strptime(str(value), fmt)
+            except ValueError:
+                continue
+        return None
     
     def _parse_chat_database(self, db_path, chat_type):
         records = []
@@ -81,8 +134,11 @@ class ChatAuditor:
                     tables.append(row[0])
                 
                 for table in tables:
+                    # 表名白名单校验，防止 SQL 注入
+                    if not isinstance(table, str) or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
+                        continue
                     try:
-                        cursor.execute(f"SELECT * FROM {table} LIMIT 100")
+                        cursor.execute(f"SELECT * FROM `{table}` LIMIT 100")
                         columns = [desc[0] for desc in cursor.description]
                         
                         for row in cursor.fetchall():
@@ -113,6 +169,8 @@ class ChatAuditor:
                                 record['has_leak_keywords'] = self._check_leak_keywords(content)
                                 if record['has_leak_keywords']:
                                     record['matched_keywords'] = self._find_matched_keywords(content)
+                                    keyword_meta = score_keywords(record['matched_keywords'])
+                                    record.update(keyword_meta)
                             
                             records.append(record)
                     except Exception:
@@ -153,6 +211,13 @@ class ChatAuditor:
             if record.get('has_leak_keywords', False):
                 count += len(record.get('matched_keywords', []))
         return count
+
+    def get_leak_keyword_score(self):
+        score = 0
+        for record in self.chat_records:
+            if record.get('has_leak_keywords', False):
+                score += int(record.get('keyword_score', 0) or 0)
+        return score
     
     def get_leak_records(self):
         return [r for r in self.chat_records if r.get('has_leak_keywords', False)]
