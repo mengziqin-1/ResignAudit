@@ -1,0 +1,557 @@
+diff --git a/README.md b/README.md
+index a0c9dc4..df6db10 100644
+--- a/README.md
++++ b/README.md
+@@ -2,7 +2,7 @@
+ 
+ 本项目面向“电子数据取证系统研发”实训题目，选择企业员工离职数据泄露风险作为具体应用场景，设计并实现一个本地运行的电子数据取证辅助系统。
+ 
+-系统面向授权取证人员，支持对指定员工工作目录、聊天记录样本、USB 使用记录样本和浏览器访问记录进行综合分析，生成风险评分、事件时间线和 PDF 取证分析报告。
++系统面向授权取证人员，支持对指定员工工作目录、聊天记录样本、USB 使用记录和浏览器访问记录进行综合分析，生成风险评分、事件时间线和 PDF 取证分析报告。
+ 
+ ## 项目定位
+ 
+@@ -21,7 +21,7 @@
+ - 文档内容解析：支持 txt、docx、xlsx、pdf、csv、json、html、md 等文件类型。
+ - 敏感内容识别：基于关键词匹配识别客户名单、商业计划、源代码、机密数据等内容。
+ - 即时通信样本解析：支持读取 `test_data/mock_chat.sqlite` 标准化聊天记录样本。
+-- USB 使用样本分析：支持读取 `test_data/mock_usb_events.json` 标准化 USB 插拔与复制事件样本。
++- USB 使用记录分析：读取本机注册表提取 USB 存储设备插拔记录。
+ - 浏览器记录分析：尝试读取本机 Chrome、Edge、Firefox 历史记录并识别网盘、邮箱访问。
+ - 时间线重建：将文件、内容、聊天、USB、浏览器事件按时间排序。
+ - 风险评分：基于敏感文件、聊天泄露意图、USB、压缩包、网盘访问等多源证据综合评分。
+@@ -47,7 +47,6 @@ python main.py
+ 员工姓名：张三
+ 工作目录路径：test_data
+ 聊天记录样本：test_data/mock_chat.sqlite
+-USB记录样本：test_data/mock_usb_events.json
+ ```
+ 
+ 启动 Web 辅助展示端：
+@@ -71,11 +70,6 @@ http://127.0.0.1:5000
+ - 模拟微信/QQ 聊天记录。
+ - 用于验证聊天记录解析、泄露关键词识别和时间线聚合。
+ 
+-`test_data/mock_usb_events.json`：
+-
+-- 模拟 USB 插入、拔出和复制事件。
+-- 用于验证外接存储设备行为分析和风险评分。
+-
+ `test_data/客户资料打包.zip`：
+ 
+ - 模拟离职前打包敏感资料的压缩包证据。
+@@ -85,7 +79,7 @@ http://127.0.0.1:5000
+ 可以这样介绍项目：
+ 
+ ```text
+-本项目以电子数据取证系统研发为实训题目，选取企业员工离职数据泄露风险作为应用场景，设计并实现了一套本地运行的电子数据取证辅助系统。系统支持对指定员工工作目录、聊天记录样本、USB 使用记录样本和浏览器访问记录进行采集、解析、分析和报告生成，帮助取证人员发现潜在的数据外传风险。
++本项目以电子数据取证系统研发为实训题目，选取企业员工离职数据泄露风险作为应用场景，设计并实现了一套本地运行的电子数据取证辅助系统。系统支持对指定员工工作目录、聊天记录样本、USB 使用记录和浏览器访问记录进行采集、解析、分析和报告生成，帮助取证人员发现潜在的数据外传风险。
+ ```
+ 
+ 关于 Web 与 PyQT 的技术路线，可以这样说明：
+diff --git a/api.py b/api.py
+index 3810dd8..711670e 100644
+--- a/api.py
++++ b/api.py
+@@ -178,22 +178,28 @@ def start_audit():
+     chat_db_path = data.get('chat_db_path', '')
+     start_date_str = data.get('start_date', '')
+     end_date_str = data.get('end_date', '')
+-    
++
+     if not employee_name or not directory_path:
+         return jsonify({'error': '请填写员工姓名和目录路径'}), 400
+-    
++
+     if not os.path.exists(directory_path):
+         return jsonify({'error': '指定的目录不存在'}), 400
+ 
+     if chat_db_path and not os.path.exists(chat_db_path):
+         return jsonify({'error': '指定的聊天记录样本不存在'}), 400
+-    
+-    try:
+-        start_date = datetime.strptime(start_date_str, '%Y-%m-%d') if start_date_str else None
+-        end_date = datetime.strptime(end_date_str, '%Y-%m-%d') if end_date_str else None
+-    except:
+-        return jsonify({'error': '日期格式错误'}), 400
+-    
++
++    if start_date_str and end_date_str:
++        try:
++            start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
++            end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
++            if start_date > end_date:
++                return jsonify({'error': '开始日期不能大于结束日期'}), 400
++        except:
++            return jsonify({'error': '日期格式错误'}), 400
++    else:
++        start_date = None
++        end_date = None
++
+     task_id = f'task_{int(time.time())}'
+     audit_tasks[task_id] = {
+         'status': 'pending',
+@@ -202,7 +208,7 @@ def start_audit():
+         'employee_name': employee_name,
+         'directory_path': directory_path
+     }
+-    
++
+     thread = threading.Thread(target=run_audit, args=(task_id, employee_name, directory_path, start_date, end_date, chat_db_path))
+     thread.start()
+     
+@@ -280,19 +286,5 @@ def download_report(task_id):
+     
+     return send_file(report_path, as_attachment=True)
+ 
+-@app.route('/api/open-file', methods=['POST'])
+-def open_file():
+-    data = request.get_json()
+-    file_path = data.get('file_path', '')
+-    
+-    if not file_path or not os.path.exists(file_path):
+-        return jsonify({'error': '文件不存在'}), 400
+-    
+-    try:
+-        os.startfile(file_path)
+-        return jsonify({'success': True})
+-    except Exception as e:
+-        return jsonify({'error': str(e)}), 500
+-
+ if __name__ == '__main__':
+-    app.run(debug=True, host='0.0.0.0', port=5000)
++    app.run(debug=False, host='127.0.0.1', port=5000)
+diff --git a/requirements.txt b/requirements.txt
+index 484ed50..6e4c586 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -1,6 +1,7 @@
+ PyQt5>=5.15.0
+ reportlab>=3.6.0
+ python-docx>=0.8.11
++python-pptx>=0.6.21
+ pandas>=1.3.0
+ openpyxl>=3.0.0
+ PyPDF2>=2.0.0
+diff --git a/src/modules/chat_auditor.py b/src/modules/chat_auditor.py
+index 51d4a84..3887864 100644
+--- a/src/modules/chat_auditor.py
++++ b/src/modules/chat_auditor.py
+@@ -130,8 +130,11 @@ class ChatAuditor:
+                     tables.append(row[0])
+                 
+                 for table in tables:
++                    # 表名白名单校验，防止 SQL 注入
++                    if not isinstance(table, str) or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
++                        continue
+                     try:
+-                        cursor.execute(f"SELECT * FROM {table} LIMIT 100")
++                        cursor.execute(f"SELECT * FROM `{table}` LIMIT 100")
+                         columns = [desc[0] for desc in cursor.description]
+                         
+                         for row in cursor.fetchall():
+diff --git a/src/modules/file_scanner.py b/src/modules/file_scanner.py
+index 67acfea..3bbd4c5 100644
+--- a/src/modules/file_scanner.py
++++ b/src/modules/file_scanner.py
+@@ -34,7 +34,13 @@ class FileScanner:
+         self.scan_results = []
+         self.total_files = 0
+         self.scan_start_time = datetime.now()
+-        
++
++        # 统一日期类型：Web 端传入 datetime，GUI 传入 date
++        if isinstance(audit_start_date, datetime):
++            audit_start_date = audit_start_date.date()
++        if isinstance(audit_end_date, datetime):
++            audit_end_date = audit_end_date.date()
++
+         if not os.path.exists(directory):
+             raise ValueError(f"目录不存在: {directory}")
+         
+diff --git a/src/modules/html_report.py b/src/modules/html_report.py
+index 4946c48..e67807c 100644
+--- a/src/modules/html_report.py
++++ b/src/modules/html_report.py
+@@ -2,6 +2,8 @@ import os
+ import json
+ from datetime import datetime
+ 
++from utils.common import sanitize_filename
++
+ class HTMLReportGenerator:
+     def __init__(self):
+         self.template_path = os.path.join(
+@@ -13,7 +15,7 @@ class HTMLReportGenerator:
+     def generate_report(self, audit_data, output_path=None):
+         if output_path is None:
+             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+-            employee_name = audit_data["employee_name"]
++            employee_name = sanitize_filename(audit_data["employee_name"])
+             report_name = f'离职安全审计报告_{employee_name}_{timestamp}.html'
+             reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports')
+             employee_dir = os.path.join(reports_dir, employee_name)
+@@ -28,6 +30,8 @@ class HTMLReportGenerator:
+             template = f.read()
+         
+         serialized_data = self._serialize_audit_data(audit_data)
++        # 将 < > 转义为 Unicode 转义，防止用户输入破坏 </script> 标签，避免 XSS
++        serialized_data = serialized_data.replace('<', '\\u003c').replace('>', '\\u003e')
+         report_html = template.replace('{{REPORT_DATA_JSON}}', serialized_data)
+         
+         with open(output_path, 'w', encoding='utf-8') as f:
+diff --git a/src/modules/pdf_report.py b/src/modules/pdf_report.py
+index be67e69..3839afa 100644
+--- a/src/modules/pdf_report.py
++++ b/src/modules/pdf_report.py
+@@ -10,6 +10,8 @@ from reportlab.pdfbase import pdfmetrics
+ from reportlab.pdfbase.ttfonts import TTFont
+ from reportlab.pdfbase.cidfonts import UnicodeCIDFont
+ 
++from utils.common import sanitize_filename
++
+ _CHINESE_FONT_REGISTERED = False
+ 
+ def _register_chinese_font():
+@@ -148,7 +150,7 @@ class PDFReportGenerator:
+     def generate_report(self, audit_data, output_path=None):
+         if output_path is None:
+             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+-            employee_name = audit_data["employee_name"]
++            employee_name = sanitize_filename(audit_data["employee_name"])
+             report_name = f'离职安全审计报告_{employee_name}_{timestamp}.pdf'
+             reports_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'reports')
+             employee_dir = os.path.join(reports_dir, employee_name)
+@@ -168,6 +170,7 @@ class PDFReportGenerator:
+         self._add_report_info(elements, audit_data)
+         self._add_risk_summary(elements, audit_data)
+         self._add_findings(elements, audit_data)
++        self._add_timeline(elements, audit_data)
+         self._add_evidence_list(elements, audit_data)
+         self._add_appendix(elements)
+         
+diff --git a/templates/index.html b/templates/index.html
+index 10905f1..01d7a35 100644
+--- a/templates/index.html
++++ b/templates/index.html
+@@ -572,12 +572,8 @@
+                     <label>聊天记录样本 <span class="hint">可选，例如 test_data/mock_chat.sqlite</span></label>
+                     <input type="text" id="chatDbPath" placeholder="请输入聊天记录SQLite样本路径">
+                 </div>
+-                <div class="form-group">
+-                    <label>USB记录样本 <span class="hint">可选，例如 test_data/mock_usb_events.json</span></label>
+-                    <input type="text" id="usbJsonPath" placeholder="请输入USB记录JSON样本路径">
+-                </div>
+             </div>
+-            
++
+             <div class="form-row">
+                 <div class="form-group">
+                     <label>审计开始日期 <span class="hint">（筛选修改时间在此之后的文件）</span></label>
+@@ -735,10 +731,9 @@
+                 const employeeName = document.getElementById('employeeName').value.trim();
+                 const directoryPath = document.getElementById('directoryPath').value.trim();
+                 const chatDbPath = document.getElementById('chatDbPath').value.trim();
+-                const usbJsonPath = document.getElementById('usbJsonPath').value.trim();
+                 const startDate = document.getElementById('startDate').value;
+                 const endDate = document.getElementById('endDate').value;
+-                
++
+                 if (!employeeName) {
+                     alert('请输入员工姓名');
+                     document.getElementById('employeeName').focus();
+@@ -772,7 +767,6 @@
+                         employee_name: employeeName,
+                         directory_path: directoryPath,
+                         chat_db_path: chatDbPath,
+-                        usb_json_path: usbJsonPath,
+                         start_date: startDate,
+                         end_date: endDate
+                     })
+@@ -906,7 +900,7 @@
+                         <td title="${f.file_path}">${f.file_path ? f.file_path.substring(0, 50) + (f.file_path.length > 50 ? '...' : '') : '-'}</td>
+                         <td>${f.description || '-'}</td>
+                         <td>
+-                            ${f.file_path ? '<a href="#" class="evidence-link" onclick="openFile(\'' + f.file_path.replace(/\\/g, '\\\\') + '\')">定位文件</a>' : '-'}
++                            ${f.file_path ? '<span class="evidence-link">' + (f.file_path.length > 50 ? '...' : '') + '</span>' : '-'}
+                         </td>
+                     `;
+                     tbody.appendChild(row);
+@@ -1021,7 +1015,6 @@
+                 document.getElementById('employeeName').value = '';
+                 document.getElementById('directoryPath').value = '';
+                 document.getElementById('chatDbPath').value = '';
+-                document.getElementById('usbJsonPath').value = '';
+                 document.getElementById('startDate').value = thirtyDaysAgo;
+                 document.getElementById('endDate').value = today;
+                 document.getElementById('resultCard').style.display = 'none';
+@@ -1030,23 +1023,6 @@
+                 currentTaskId = null;
+                 if (statusInterval) clearInterval(statusInterval);
+             }
+-            
+-            window.openFile = function(filePath) {
+-                fetch('/api/open-file', {
+-                    method: 'POST',
+-                    headers: { 'Content-Type': 'application/json' },
+-                    body: JSON.stringify({ file_path: filePath })
+-                })
+-                .then(response => response.json())
+-                .then(data => {
+-                    if (data.error) {
+-                        alert('无法打开文件: ' + data.error);
+-                    }
+-                })
+-                .catch(error => {
+-                    console.error('Error:', error);
+-                });
+-            };
+         });
+     </script>
+ </body>
+diff --git "a/\344\277\256\345\244\215\346\212\245\345\221\212.md" "b/\344\277\256\345\244\215\346\212\245\345\221\212.md"
+new file mode 100644
+index 0000000..b6b1d3c
+--- /dev/null
++++ "b/\344\277\256\345\244\215\346\212\245\345\221\212.md"
+@@ -0,0 +1,240 @@
++# ResignAudit 项目修复报告
++
++**修复日期**：2026-07-07  
++**修复范围**：面向离职风险的电子数据取证辅助系统  
++**修复目标**：消除严重安全漏洞、修复 Web 端崩溃缺陷、补全功能缺失，确保项目可正常演示交付。
++
++---
++
++## 一、修复清单
++
++| 序号 | 问题 | 严重程度 | 修改文件 | 验证方式 |
++|------|------|----------|----------|----------|
++| 1 | Web 端审计因 `date`/`datetime` 类型混用崩溃 | 🔴 高 | `src/modules/file_scanner.py` | API 全链路测试通过 |
++| 2 | Flask 开启 Debug 并监听 `0.0.0.0` | 🔴 严重 | `api.py` | 启动日志确认 `Debug mode: off`、`127.0.0.1` |
++| 3 | `/api/open-file` 可远程打开/执行任意文件 | 🔴 严重 | `api.py`、`templates/index.html` | 接口已移除，前端定位文件按钮已取消 |
++| 4 | HTML 报告存在存储型 XSS | 🔴 严重 | `src/modules/html_report.py` | 员工名注入 `</script>` 测试，报告正常渲染无脚本执行 |
++| 5 | PDF 报告缺少“事件时间线”章节 | 🟠 中 | `src/modules/pdf_report.py` | 生成 PDF 并确认包含时间线表格 |
++| 6 | 员工姓名可造成报告路径穿越 | 🟠 中 | `src/modules/pdf_report.py`、`src/modules/html_report.py` | 特殊字符员工名生成报告文件名被清洗 |
++| 7 | 缺少 `python-pptx` 依赖 | 🟡 低 | `requirements.txt` | 已安装并验证导入正常 |
++| 8 | 聊天记录解析存在 SQL 注入 | 🟠 中 | `src/modules/chat_auditor.py` | 表名白名单校验生效 |
++| 9 | ~~USB JSON 样本路径未接入 Web 端~~ | 🟠 中 | `api.py`、`templates/index.html` | 已回退：隐藏输入框，移除后端参数 |
++| 10 | ~~缺少 USB 测试样本文件~~ | 🟠 中 | `test_data/mock_usb_events.json` | 已删除：直接读取注册表 |
++
++---
++
++## 二、详细修改说明
++
++### 1. 修复 Web 端日期类型崩溃
++
++**问题**：`api.py` 通过 `datetime.strptime()` 得到 `datetime` 对象，而 `main.py` 得到的是 `date` 对象。`file_scanner.py` 中直接比较 `modify_time.date() < audit_start_date`，当 `audit_start_date` 为 `datetime` 时抛出 `TypeError: can't compare datetime.datetime to datetime.date`，导致 Web 端一点审计就崩溃。
++
++**修改**：[src/modules/file_scanner.py:36-41](ResignAudit/src/modules/file_scanner.py#L36-L41)
++```python
++# 统一日期类型：Web 端传入 datetime，GUI 传入 date
++if isinstance(audit_start_date, datetime):
++    audit_start_date = audit_start_date.date()
++if isinstance(audit_end_date, datetime):
++    audit_end_date = audit_end_date.date()
++```
++
++**验证**：
++```bash
++python -c "..."
++# 输出：date path files: 7 / datetime path files: 7
++```
++
++---
++
++### 2. 关闭 Flask Debug 并限制本地监听
++
++**问题**：原配置 `app.run(debug=True, host='0.0.0.0', port=5000)` 会暴露 Werkzeug 调试控制台，局域网内任何人可访问，存在远程代码执行风险。
++
++**修改**：[api.py:297-298](ResignAudit/api.py#L297-L298)
++```python
++app.run(debug=False, host='127.0.0.1', port=5000)
++```
++
++**验证**：启动日志显示 `Debug mode: off`、`Running on http://127.0.0.1:5000`。
++
++---
++
++### 3. 移除 `/api/open-file` 危险接口
++
++**问题**：该接口接收任意 `file_path` 并调用 `os.startfile()`，可远程打开或执行任意文件（包括 `.exe`、`.bat` 等），属于远程代码执行漏洞。
++
++**修改**：
++- 后端：删除 [api.py:283-295](ResignAudit/api.py#L283-L295) 的 `/api/open-file` 路由。
++- 前端：删除 [templates/index.html](ResignAudit/templates/index.html) 中的“定位文件”链接及 `window.openFile` 函数。
++
++---
++
++### 4. 修复 HTML 报告存储型 XSS
++
++**问题**：原模板 `var REPORT_DATA_JSON = {{REPORT_DATA_JSON}};` 将用户输入（员工名、文件路径、聊天内容等）直接嵌入 `<script>` 标签。如果输入包含 `</script><script>...`，会突破脚本边界执行任意代码。
++
++**修改**：[src/modules/html_report.py:31-34](ResignAudit/src/modules/html_report.py#L31-L34)
++```python
++serialized_data = self._serialize_audit_data(audit_data)
++# 将 < > 转义为 Unicode 转义，防止用户输入破坏 </script> 标签，避免 XSS
++serialized_data = serialized_data.replace('<', r'<').replace('>', r'>')
++report_html = template.replace('{{REPORT_DATA_JSON}}', serialized_data)
++```
++
++**验证**：员工名填入 `</script><script>alert(1)</script>`，生成的 HTML 中显示为：
++```json
++"employee_name": "</script><script>alert(1)</script>"
++```
++浏览器不会执行注入脚本。
++
++---
++
++### 5. PDF 报告补全事件时间线
++
++**问题**：`pdf_report.py` 中已定义 `_add_timeline()` 方法，但 `generate_report()` 从未调用它，导致 PDF 缺少事件时间线章节。
++
++**修改**：[src/modules/pdf_report.py:174-179](ResignAudit/src/modules/pdf_report.py#L174-L179)
++```python
++self._add_report_info(elements, audit_data)
++self._add_risk_summary(elements, audit_data)
++self._add_findings(elements, audit_data)
++self._add_timeline(elements, audit_data)
++self._add_evidence_list(elements, audit_data)
++self._add_appendix(elements)
++```
++
++---
++
++### 6. 清洗员工姓名，防止报告路径穿越
++
++**问题**：原代码将 `employee_name` 直接拼入报告文件名和目录，如果姓名包含 `/`、`\`、`..` 等特殊字符，可能导致报告写到非预期位置。
++
++**修改**：
++- [src/modules/pdf_report.py:10](ResignAudit/src/modules/pdf_report.py#L10) 引入 `from utils.common import sanitize_filename`
++- [src/modules/pdf_report.py:153](ResignAudit/src/modules/pdf_report.py#L153) 使用 `employee_name = sanitize_filename(audit_data["employee_name"])`
++- [src/modules/html_report.py:5-7](ResignAudit/src/modules/html_report.py#L5-L7) 同样引入并清洗
++
++**验证**：员工名 `</script><script>alert(1)</script>` 生成目录 `__script__script_alert(1)__script_`，无路径穿越。
++
++---
++
++### 7. 补齐 `python-pptx` 依赖
++
++**问题**：`ContentAnalyzer._extract_ppt_text()` 需要 `pptx` 模块，但 `requirements.txt` 未列出，PPT 内容提取会静默失效。
++
++**修改**：[requirements.txt:4](ResignAudit/requirements.txt#L4)
++```text
++python-pptx>=0.6.21
++```
++
++**验证**：已执行 `pip install python-pptx`，导入成功。
++
++---
++
++### 8. 修复聊天记录 SQL 注入
++
++**问题**：`chat_auditor.py` 中将表名直接拼接到 SQL：`cursor.execute(f"SELECT * FROM {table} LIMIT 100")`。若恶意 SQLite 样本表名特殊，可能触发 SQL 注入。
++
++**修改**：[src/modules/chat_auditor.py:132-137](ResignAudit/src/modules/chat_auditor.py#L132-L137)
++```python
++# 表名白名单校验，防止 SQL 注入
++if not isinstance(table, str) or not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', table):
++    continue
++try:
++    cursor.execute(f"SELECT * FROM `{table}` LIMIT 100")
++```
++
++---
++
++### 9. ~~Web 端接入 USB JSON 样本路径~~（已回退）
++
++**说明**：该修改在后续沟通中被回退。项目决定 USB 记录直接读取本机注册表，不再提供 mock JSON 样本入口。因此：
++- `api.py` 中已移除 `usb_json_path` 参数及其校验
++- Web 前端已隐藏 USB 样本输入框
++- `test_data/mock_usb_events.json` 已删除
++- README 已更新，不再推荐该 mock 样本
++
++---
++
++### 10. ~~补充 USB 测试样本~~（已删除）
++
++**说明**：`test_data/mock_usb_events.json` 已删除。USB 模块现在直接通过 Windows 注册表读取真实 USB 使用记录。
++
++---
++
++## 三、验证结果
++
++### 3.1 Web 端全链路测试
++
++启动服务：
++```bash
++python api.py
++```
++
++通过 API 发起审计：
++- 员工姓名：`测试员工`
++- 工作目录：`ResignAudit/test_data`
++- 聊天记录样本：`ResignAudit/test_data/mock_chat.sqlite`
++- 日期范围：2024-01-01 至 2026-12-31
++
++测试结果：
++- 状态：completed 100%
++- 风险等级：高风险（评分 100）
++- 扫描文件数：8
++- USB 设备事件：6
++- 聊天记录泄露记录：3 条
++- 生成报告：PDF + HTML 各一份
++
++### 3.2 安全检查
++
++| 检查项 | 结果 |
++|--------|------|
++| Flask Debug 模式 | 已关闭 |
++| 监听地址 | 127.0.0.1（仅本机） |
++| `/api/open-file` 接口 | 已移除 |
++| HTML 报告 XSS 注入测试 | 已转义，无脚本执行 |
++| 特殊字符员工名路径穿越 | 文件名已清洗 |
++
++---
++
++## 四、遗留建议（交付后可继续优化）
++
++以下问题不影响明天交付，但建议后续迭代处理：
++
++1. **GUI 端也加入 USB 样本输入框**：目前仅在 Web 端可用，PyQt 客户端仍缺少该字段。
++2. **审计逻辑抽离**：`main.py` 和 `api.py` 中 `run_audit` 逻辑重复，建议统一为 `AuditOrchestrator`。
++3. **哈希算法升级**：取证场景建议将 MD5 改为 SHA-256。
++4. **关键词库精简**：当前敏感词库过于宽泛，易产生误报，可按场景设置权重。
++5. **浏览器多 Profile 支持**：目前只读取 Chrome/Edge 的 `Default` 配置。
++6. **CORS 策略收紧**：本地工具可关闭全局 CORS。
++
++---
++
++## 五、如何运行（交付版）
++
++### 5.1 安装依赖
++```bash
++pip install -r requirements.txt
++```
++
++### 5.2 启动 PyQt 客户端（推荐主要入口）
++```bash
++python main.py
++```
++
++### 5.3 启动 Web 辅助端
++```bash
++python api.py
++```
++浏览器访问：http://127.0.0.1:5000
++
++### 5.4 推荐演示参数
++- 员工姓名：`张三`
++- 工作目录路径：`test_data`
++- 聊天记录样本：`test_data/mock_chat.sqlite`
++
++---
++
++**修复人**：Claude Code  
++**修复完成时间**：2026-07-07 14:50
++**更新说明**：2026-07-07 后续已删除 mock USB 样本，USB 记录改为直接读取注册表。
