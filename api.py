@@ -1,165 +1,86 @@
 import os
 import sys
-import json
 import time
 import threading
-from datetime import datetime, timedelta
+import secrets
+import uuid
+import subprocess
+from datetime import datetime
 from flask import Flask, request, jsonify, render_template, send_file
-from flask_cors import CORS
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
 
-from modules.file_scanner import FileScanner
-from modules.content_analyzer import ContentAnalyzer
-from modules.usb_auditor import USBAuditor
-from modules.browser_analyzer import BrowserAnalyzer
-from modules.chat_auditor import ChatAuditor
-from modules.timeline_aggregator import TimelineAggregator
-from modules.rule_engine import RuleEngine
-from modules.pdf_report import PDFReportGenerator
-from modules.html_report import HTMLReportGenerator
+from modules.audit_orchestrator import AuditOrchestrator
 
 app = Flask(__name__)
-CORS(app)
+LOCAL_ACCESS_TOKEN = os.environ.get('RESIGNAUDIT_TOKEN') or secrets.token_urlsafe(24)
 
 audit_tasks = {}
 
+def _is_authorized_request():
+    token = request.headers.get('X-Local-Token') or request.args.get('token')
+    return token == LOCAL_ACCESS_TOKEN
+
+def _require_local_token():
+    if not _is_authorized_request():
+        return jsonify({'error': '本地访问令牌无效，请从系统首页重新打开'}), 403
+    return None
+
+def _collect_allowed_evidence_paths(result):
+    allowed = set()
+
+    for file_info in result.get('file_scan_results', []):
+        path = file_info.get('file_path')
+        if path:
+            allowed.add(os.path.abspath(path))
+
+    for finding in result.get('content_findings', []):
+        path = finding.get('file_path')
+        if path and not path.startswith(('http://', 'https://')):
+            allowed.add(os.path.abspath(path))
+
+    return allowed
+
+def _json_safe(value):
+    if isinstance(value, datetime):
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+    if isinstance(value, list):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    return value
+
 def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat_db_path=''):
+    """线程目标函数：调用 AuditOrchestrator 执行审计，实时更新任务状态。"""
+    def progress_callback(progress, message):
+        if progress == -1:
+            audit_tasks[task_id]['status'] = 'failed'
+            audit_tasks[task_id]['message'] = message
+            audit_tasks[task_id]['error'] = message
+        else:
+            audit_tasks[task_id]['progress'] = progress
+            audit_tasks[task_id]['message'] = message
+
     try:
         audit_tasks[task_id]['status'] = 'running'
-        audit_tasks[task_id]['progress'] = 5
-        audit_tasks[task_id]['message'] = '初始化审计模块...'
-        
-        file_scanner = FileScanner()
-        content_analyzer = ContentAnalyzer()
-        usb_auditor = USBAuditor()
-        browser_analyzer = BrowserAnalyzer()
-        chat_auditor = ChatAuditor()
-        timeline_aggregator = TimelineAggregator()
-        rule_engine = RuleEngine()
-        
-        audit_tasks[task_id]['progress'] = 10
-        audit_tasks[task_id]['message'] = '① 文件扫描：扫描指定目录下所有文件...'
-        time.sleep(1)
-        
-        file_results = file_scanner.scan_directory(directory_path, start_date, end_date)
-        
-        audit_tasks[task_id]['progress'] = 15
-        audit_tasks[task_id]['message'] = '①-2 压缩包检查：分析压缩包内部文件结构...'
-        time.sleep(1)
-        
-        archive_inspection = file_scanner.inspect_archives()
-        
-        audit_tasks[task_id]['progress'] = 25
-        audit_tasks[task_id]['message'] = '② 内容分析：提取文档文本并匹配敏感关键词...'
-        time.sleep(1)
-        
-        content_findings = content_analyzer.analyze_files(file_results)
-        
-        audit_tasks[task_id]['progress'] = 40
-        audit_tasks[task_id]['message'] = '③ 聊天记录审计：解析微信/QQ/Skype聊天数据库...'
-        time.sleep(1)
-        
-        chat_records = chat_auditor.audit_chat_records(mock_db_path=chat_db_path)
-        
-        audit_tasks[task_id]['progress'] = 60
-        audit_tasks[task_id]['message'] = '④ USB设备审计：读取注册表提取U盘插拔记录...'
-        time.sleep(1)
-        
-        usb_devices, usb_operations = usb_auditor.audit_usb_devices()
-        
-        audit_tasks[task_id]['progress'] = 75
-        audit_tasks[task_id]['message'] = '⑤ 浏览器行为分析：提取历史记录匹配外传渠道...'
-        time.sleep(1)
-        
-        browser_history, cloud_visits, email_visits = browser_analyzer.analyze_browsers()
-        
-        audit_tasks[task_id]['progress'] = 90
-        audit_tasks[task_id]['message'] = '⑥ 时间线聚合：将所有事件按时间排序...'
-        time.sleep(1)
-        
-        timeline_aggregator.add_events(file_results, 'file')
-        timeline_aggregator.add_events(content_findings, 'content')
-        timeline_aggregator.add_events(usb_devices, 'usb')
-        timeline_aggregator.add_events(browser_history, 'browser')
-        timeline_aggregator.add_events(chat_records, 'chat')
-        timeline = timeline_aggregator.build_timeline()
-        
-        audit_tasks[task_id]['progress'] = 95
-        audit_tasks[task_id]['message'] = '规则引擎汇总分析：计算风险评分...'
-        time.sleep(1)
-        
-        scan_results = {
-            'night_time_file_operations': file_scanner.get_night_time_operations(),
-            'usb_insertions_last_30_days': usb_auditor.get_usb_insertions_count(30),
-            'usb_short_time_insertions': usb_auditor.get_short_time_insertions(4),
-            'usb_file_copies': usb_auditor.get_usb_file_copies(),
-            'chat_leak_keywords_found': chat_auditor.get_leak_keywords_count(),
-            'browser_cloud_visits': browser_analyzer.get_cloud_visits_count(30),
-            'large_archives_created': len(file_scanner.get_large_archives(min_size_mb=0.001)),
-            'archive_inspection': archive_inspection,
-            'content_sensitive_findings': sum(1 for f in content_findings if f.get('type') == 'sensitive_keyword')
-        }
-        
-        risk_assessment = rule_engine.assess_risk(employee_name, scan_results)
-        scan_results['risk_score'] = risk_assessment['risk_score']
-        
-        audit_tasks[task_id]['progress'] = 95
-        audit_tasks[task_id]['message'] = '生成PDF报告...'
-        time.sleep(1)
-        
-        browser_findings = browser_analyzer.get_findings()
-        
-        archive_findings = []
-        for archive in archive_inspection:
-            if archive.get('sensitive_hit_count', 0) > 0:
-                archive_findings.append({
-                    'type': 'sensitive_keyword',
-                    'file_path': archive['archive_path'],
-                    'file_name': archive['archive_name'],
-                    'modify_time': archive['modify_time'],
-                    'matched_keywords': archive['sensitive_inner_hits'][:10],
-                    'severity': 'high' if archive['sensitive_hit_count'] >= 5 else 'medium',
-                    'description': f"压缩包内文件名命中敏感关键词（{archive['sensitive_hit_count']}个）: {', '.join(archive['sensitive_inner_hits'][:5])}"
-                })
-        
-        all_findings = content_findings + browser_findings + archive_findings
-        
-        report_data = {
-            'employee_name': employee_name,
-            'audit_range': directory_path,
-            'audit_time_range': f"{start_date.strftime('%Y-%m-%d')} 至 {end_date.strftime('%Y-%m-%d')}",
-            'data_sources': {
-                '工作目录': directory_path,
-                '聊天记录样本': chat_db_path or '未指定，尝试读取本机默认聊天目录',
-                'USB使用记录': '读取本机注册表'
-            },
-            'risk_level': risk_assessment['risk_level'],
-            'findings': risk_assessment['findings'],
-            'content_findings': all_findings,
-            'timeline': timeline,
-            'file_scan_results': file_results
-        }
-        
-        report_generator = PDFReportGenerator()
-        report_path = report_generator.generate_report(report_data)
-        
-        html_generator = HTMLReportGenerator()
-        html_report_path = html_generator.generate_report(report_data)
-        
-        report_data['report_path'] = report_path
-        report_data['html_report_path'] = html_report_path
-        report_data['scan_results'] = scan_results
-        report_data['chat_summary'] = chat_auditor.get_summary()
-        report_data['browser_summary'] = browser_analyzer.get_summary()
-        report_data['usb_summary'] = usb_auditor.get_summary()
-        report_data['file_summary'] = file_scanner.get_summary()
-        
+        audit_tasks[task_id]['progress'] = 0
+        audit_tasks[task_id]['message'] = '任务已启动'
+
+        orchestrator = AuditOrchestrator(
+            employee_name,
+            directory_path,
+            start_date,
+            end_date,
+            chat_db_path
+        )
+
+        report_data = orchestrator.run(progress_callback=progress_callback)
+
         audit_tasks[task_id]['progress'] = 100
         audit_tasks[task_id]['message'] = '审计完成！'
         audit_tasks[task_id]['status'] = 'completed'
         audit_tasks[task_id]['result'] = report_data
-        
+
     except Exception as e:
         audit_tasks[task_id]['status'] = 'failed'
         audit_tasks[task_id]['message'] = f'审计失败: {str(e)}'
@@ -167,10 +88,14 @@ def run_audit(task_id, employee_name, directory_path, start_date, end_date, chat
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', local_access_token=LOCAL_ACCESS_TOKEN)
 
 @app.route('/api/start-audit', methods=['POST'])
 def start_audit():
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     data = request.get_json()
     
     employee_name = data.get('employee_name', '')
@@ -200,7 +125,7 @@ def start_audit():
         start_date = None
         end_date = None
 
-    task_id = f'task_{int(time.time())}'
+    task_id = f'task_{int(time.time())}_{uuid.uuid4().hex[:8]}'
     audit_tasks[task_id] = {
         'status': 'pending',
         'progress': 0,
@@ -216,6 +141,10 @@ def start_audit():
 
 @app.route('/api/audit-status/<task_id>', methods=['GET'])
 def audit_status(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     if task_id not in audit_tasks:
         return jsonify({'error': '任务不存在'}), 404
     
@@ -237,6 +166,10 @@ def audit_status(task_id):
             'chat_summary': result['chat_summary'],
             'browser_summary': result['browser_summary'],
             'usb_summary': result['usb_summary'],
+            'evidence_type_summary': result.get('evidence_type_summary', []),
+            'evidence_events': _json_safe(result.get('evidence_events', [])),
+            'evidence_chains': _json_safe(result.get('evidence_chains', [])),
+            'scoring_breakdown': _json_safe(result.get('scoring_breakdown', [])),
             'report_path': os.path.basename(result['report_path'])
         }
         
@@ -271,6 +204,10 @@ def audit_status(task_id):
 
 @app.route('/api/download-report/<task_id>', methods=['GET'])
 def download_report(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
     if task_id not in audit_tasks:
         return jsonify({'error': '任务不存在'}), 404
     
@@ -285,6 +222,42 @@ def download_report(task_id):
         return jsonify({'error': '报告文件不存在'}), 404
     
     return send_file(report_path, as_attachment=True)
+
+@app.route('/api/reveal-path/<task_id>', methods=['POST'])
+def reveal_path(task_id):
+    auth_error = _require_local_token()
+    if auth_error:
+        return auth_error
+
+    if task_id not in audit_tasks:
+        return jsonify({'error': '任务不存在'}), 404
+
+    task = audit_tasks[task_id]
+    if task['status'] != 'completed':
+        return jsonify({'error': '审计尚未完成，不能定位证据路径'}), 400
+
+    data = request.get_json() or {}
+    requested_path = data.get('file_path', '')
+    if not requested_path or requested_path.startswith(('http://', 'https://')):
+        return jsonify({'error': '不是可定位的本地文件路径'}), 400
+
+    abs_path = os.path.abspath(requested_path)
+    allowed_paths = _collect_allowed_evidence_paths(task['result'])
+    if abs_path not in allowed_paths:
+        return jsonify({'error': '该路径不属于当前审计任务的证据清单'}), 403
+
+    if not os.path.exists(abs_path):
+        return jsonify({'error': '文件不存在或已被移动'}), 404
+
+    try:
+        if os.path.isdir(abs_path):
+            subprocess.Popen(['explorer', abs_path])
+        else:
+            subprocess.Popen(['explorer', '/select,', abs_path])
+    except Exception as exc:
+        return jsonify({'error': f'无法打开所在文件夹: {exc}'}), 500
+
+    return jsonify({'ok': True})
 
 if __name__ == '__main__':
     app.run(debug=False, host='127.0.0.1', port=5000)

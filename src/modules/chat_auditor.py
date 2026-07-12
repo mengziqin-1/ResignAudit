@@ -4,6 +4,8 @@ import sqlite3
 import shutil
 from datetime import datetime
 
+from modules.keyword_policy import score_keywords
+
 class ChatAuditor:
     def __init__(self):
         self.chat_records = []
@@ -80,6 +82,8 @@ class ChatAuditor:
                 }
                 if record['has_leak_keywords']:
                     record['matched_keywords'] = self._find_matched_keywords(content)
+                    keyword_meta = score_keywords(record['matched_keywords'])
+                    record.update(keyword_meta)
                 records.append(record)
         finally:
             conn.close()
@@ -165,6 +169,8 @@ class ChatAuditor:
                                 record['has_leak_keywords'] = self._check_leak_keywords(content)
                                 if record['has_leak_keywords']:
                                     record['matched_keywords'] = self._find_matched_keywords(content)
+                                    keyword_meta = score_keywords(record['matched_keywords'])
+                                    record.update(keyword_meta)
                             
                             records.append(record)
                     except Exception:
@@ -205,6 +211,13 @@ class ChatAuditor:
             if record.get('has_leak_keywords', False):
                 count += len(record.get('matched_keywords', []))
         return count
+
+    def get_leak_keyword_score(self):
+        score = 0
+        for record in self.chat_records:
+            if record.get('has_leak_keywords', False):
+                score += int(record.get('keyword_score', 0) or 0)
+        return score
     
     def get_leak_records(self):
         return [r for r in self.chat_records if r.get('has_leak_keywords', False)]
